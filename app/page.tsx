@@ -273,23 +273,29 @@ function validateUrl(urlStr: string): { isValid: boolean; message: string } {
   return { isValid: false, message: "⚠️ Formato de URL inválido" };
 }
 
-function validateDateString(dateStr: string, required: boolean = false): { isValid: boolean; message: string } {
+function validateDateString(dateStr: string, required: boolean = false, allowPresent: boolean = false): { isValid: boolean; message: string } {
   if (!dateStr || dateStr.trim() === "") {
     if (required) {
-      return { isValid: false, message: "⚠️ Formato inválido (ej: 2026-01 o present)" };
+      return { isValid: false, message: "⚠️ Formato inválido (ej: 2026-01)" };
     }
     return { isValid: true, message: "" };
   }
-  if (dateStr.trim().toLowerCase() === "present") {
+
+  const cleanVal = dateStr.trim().toLowerCase();
+
+  if (cleanVal === "present") {
+    if (!allowPresent) {
+      return { isValid: false, message: "⚠️ 'present' no está permitido en esta fecha" };
+    }
     return { isValid: true, message: "✓ Fecha válida (present)" };
   }
   
   const regex = /^(\d{4})(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1]))?)?$/;
   
-  if (regex.test(dateStr.trim())) {
+  if (regex.test(cleanVal)) {
     return { isValid: true, message: "✓ Fecha válida (YYYY o YYYY-MM)" };
   }
-  return { isValid: false, message: "⚠️ Formato inválido (ej: 2026-01 o present)" };
+  return { isValid: false, message: "⚠️ Formato inválido (ej: 2026-01)" };
 }
 
 export default function CrearCvPage() {
@@ -555,6 +561,16 @@ function CrearCvContent() {
     });
   };
 
+  // Sincronizar selectores automáticamente al cambiar de CV o actualizar contenido
+  useEffect(() => {
+    if (parsedYamlObj?.design?.theme && TEMPLATES.includes(parsedYamlObj.design.theme)) {
+      setSelectedTheme(parsedYamlObj.design.theme);
+    }
+    if (parsedYamlObj?.locale?.language) {
+      setCurrentLang(parsedYamlObj.locale.language);
+    }
+  }, [yamlContent]);
+
   const handleConfirmCreateCv = async () => {
     try {
       let parsed = yaml.load(DEFAULT_SPANISH_YAML) as any;
@@ -586,13 +602,13 @@ function CrearCvContent() {
             setActiveCvId(data.cv.id);
             setYamlContent(data.cv.yamlContent);
             setLastSavedContent(data.cv.yamlContent);
+            setSelectedTheme(modalSelectedTheme); // Sincroniza el select con el modal
           }
           setShowCreateModal(false);
         } else {
           alert("Error al guardar el nuevo CV");
         }
       } else {
-        // Modo Invitado: Crear localmente
         const newLocalCv = {
           id: `local-cv-${Date.now()}`,
           title,
@@ -603,6 +619,7 @@ function CrearCvContent() {
         setActiveCvId(newLocalCv.id);
         setYamlContent(newLocalCv.yamlContent);
         setLastSavedContent(newLocalCv.yamlContent);
+        setSelectedTheme(modalSelectedTheme); // Sincroniza el select con el modal
         localStorage.setItem("palatime_local_cvs", JSON.stringify(updated));
         setShowCreateModal(false);
       }
@@ -857,14 +874,14 @@ function CrearCvContent() {
                   }
                 }
                 if (item.start_date !== undefined) {
-                  const sdCheck = validateDateString(item.start_date ? String(item.start_date) : "", true);
+                  const sdCheck = validateDateString(item.start_date ? String(item.start_date) : "", true, false);
                   if (!sdCheck.isValid) {
                     setValidationWarning(`⚠️ Fecha de inicio inválida en sección "${secTitle}" (item #${i + 1}, start_date: "${item.start_date ?? ""}"). Use YYYY o YYYY-MM.`);
                     return false;
                   }
                 }
                 if (item.end_date !== undefined) {
-                  const edCheck = validateDateString(item.end_date ? String(item.end_date) : "", true);
+                  const edCheck = validateDateString(item.end_date ? String(item.end_date) : "", true, true);
                   if (!edCheck.isValid) {
                     setValidationWarning(`⚠️ Fecha de fin inválida en sección "${secTitle}" (item #${i + 1}, end_date: "${item.end_date ?? ""}"). Use YYYY, YYYY-MM o present.`);
                     return false;
@@ -1158,9 +1175,9 @@ function CrearCvContent() {
           <div className="space-y-2">
             <div className="flex items-center justify-between px-2">
               <span className="text-[11px] font-bold uppercase tracking-wider opacity-65">Mis CVs</span>
-              
+              {!isAuthenticated && <span className=" text-[10px] text-amber-400 font-medium flex justify-start items-center"><CloudOff size={15} className=" mx-1"/>Guardado localmente</span>}
             </div>
-            {!isAuthenticated && <span className=" w-full text-[10px] text-amber-400 font-medium flex justify-start items-center"><CloudOff size={15} className=" mx-1"/>Guardado localmente</span>}
+            
             <div className="space-y-1 overflow-visible pr-1">
               {userCvs.map((cv) => (
                 <div 
@@ -1373,27 +1390,61 @@ function CrearCvContent() {
 
         {/* ÁREA PRINCIPAL: Validación si hay CVs creados o no */}
         {userCvs.length === 0 ? (
-          /* ESTADO VACÍO (EMPTY STATE) CUANDO NO HAY NINGÚN CV */
-          <div className={`flex-1 flex flex-col items-center justify-center p-8 text-center select-none ${isDarkMode ? "bg-[#090D16] text-[#F8FAFC]" : "bg-[#F1F5F9] text-[#0F172A]"}`}>
-            <div className={`max-w-md p-8 rounded-2xl border shadow-2xl space-y-4 ${isDarkMode ? "bg-[#0F172B] border-white/10" : "bg-white border-neutral-200"}`}>
-              <div className="w-12 h-12 rounded-full bg-blue-600/20 text-blue-500 flex items-center justify-center mx-auto mb-2">
-                <FileUser className="w-6 h-6" />
+          /* ESTADO VACÍO EN EDITOR / SKELETON LOADER EN PREVIEW */
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden">
+            
+            {/* Columna Izquierda: Mensaje de que no hay CVs */}
+            <div className={`flex flex-col items-center justify-center p-8 text-center select-none border-r ${isDarkMode ? "bg-[#090D16] border-[#F8FAFC]/10 text-[#F8FAFC]" : "bg-[#F1F5F9] border-neutral-200 text-[#0F172A]"}`}>
+              <div className={`max-w-md p-8 rounded-2xl border shadow-2xl space-y-4 ${isDarkMode ? "bg-[#0F172B] border-white/10" : "bg-white border-neutral-200"}`}>
+                <div className="w-12 h-12 rounded-full bg-blue-600/20 text-blue-500 flex items-center justify-center mx-auto mb-2">
+                  <FileUser className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-bold">No tenés ningún CV creado</h3>
+                <p className="text-xs opacity-70 leading-relaxed">
+                  Actualmente no hay currículums disponibles en tu espacio de trabajo. Creá uno nuevo para comenzar a editar su contenido, cambiar plantillas y exportarlo en PDF.
+                </p>
+                <button
+                  onClick={() => {
+                    setNewCvTitleInput("Nuevo CV");
+                    setModalSelectedTheme("engineeringclassic");
+                    setShowCreateModal(true);
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg transition flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Crear un nuevo CV ahora
+                </button>
               </div>
-              <h3 className="text-lg font-bold">No tenés ningún CV creado</h3>
-              <p className="text-xs opacity-70 leading-relaxed">
-                Actualmente no hay currículums disponibles en tu espacio de trabajo. Creá uno nuevo para comenzar a editar su contenido, cambiar plantillas y exportarlo en PDF.
-              </p>
-              <button
-                onClick={() => {
-                  setNewCvTitleInput("Nuevo CV");
-                  setModalSelectedTheme("engineeringclassic");
-                  setShowCreateModal(true);
-                }}
-                className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg transition flex items-center justify-center gap-2"
-              >
-                <Plus className="w-4 h-4" /> Crear un nuevo CV ahora
-              </button>
             </div>
+
+            {/* Columna Derecha: Animación visual de carga (Skeleton Loader basada en la imagen) */}
+            <div className={`flex flex-col h-full items-center justify-center p-8 overflow-hidden animate-pulse ${isDarkMode ? "bg-[#090D16]" : "bg-neutral-100"}`}>
+              <div className={`w-full max-w-md h-[100%] rounded-2xl border p-6 flex flex-col items-center space-y-6 shadow-2xl ${isDarkMode ? "bg-[#0F172B]/60 border-white/10" : "bg-white border-neutral-200"}`}>
+                {/* Cabecera simulada */}
+                <div className="w-32 h-6 bg-blue-500/20 rounded-full mb-2"></div>
+                <div className="w-48 h-3 bg-blue-500/10 rounded-full mb-6"></div>
+                
+                {/* Líneas de contenido simuladas */}
+                <div className="w-full space-y-3">
+                  <div className="w-24 h-4 bg-blue-500/20 rounded mb-2"></div>
+                  <div className="w-full h-2.5 bg-blue-500/10 rounded"></div>
+                  <div className="w-full h-2.5 bg-blue-500/10 rounded"></div>
+                  <div className="w-5/6 h-2.5 bg-blue-500/10 rounded"></div>
+                </div>
+
+                <div className="w-full space-y-3 pt-4">
+                  <div className="w-28 h-4 bg-blue-500/20 rounded mb-2"></div>
+                  <div className="w-full h-2.5 bg-blue-500/10 rounded"></div>
+                  <div className="w-full h-2.5 bg-blue-500/10 rounded"></div>
+                </div>
+
+                <div className="w-full space-y-3 pt-4">
+                  <div className="w-20 h-4 bg-blue-500/20 rounded mb-2"></div>
+                  <div className="w-full h-2.5 bg-blue-500/10 rounded"></div>
+                  <div className="w-4/5 h-2.5 bg-blue-500/10 rounded"></div>
+                </div>
+              </div>
+            </div>
+
           </div>
         ) : (
           /* VISTA NORMAL DE EDITOR Y PREVIEW (CUANDO SÍ HAY CVs) */
@@ -1593,8 +1644,8 @@ function CrearCvContent() {
 
                           {Array.isArray(secItems) && secItems.map((item: any, itemIdx) => {
                             const dateCheck = validateDateString(item?.date, false);
-                            const startDateCheck = validateDateString(item?.start_date, true);
-                            const endDateCheck = validateDateString(item?.end_date, true);
+                            const startDateCheck = validateDateString(item?.start_date, true,false);
+                            const endDateCheck = validateDateString(item?.end_date, true, true);
 
                             return (
                               <div key={itemIdx} className={`border p-3 rounded-lg relative space-y-2 text-xs ${isDarkMode ? "bg-[#1D293D]/60 border-[#F8FAFC]/10 text-white" : "bg-white border-neutral-200 text-neutral-900"}`}>

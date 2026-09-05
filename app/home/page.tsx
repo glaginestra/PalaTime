@@ -233,7 +233,7 @@ export default function HomePage() {
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform text-slate-500" />
             </button>
             <p className="mt-3">
-              <span onClick={() => router.push("/invitado")} className="text-xs text-slate-300 leading-relaxed text-center hover:underline cursor-pointer">
+              <span onClick={() => router.push("/")} className="text-xs text-slate-300 leading-relaxed text-center hover:underline cursor-pointer">
                   O entrá como invitado
               </span>
             </p>
