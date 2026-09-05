@@ -10,6 +10,26 @@ import { Download, Plus, Upload, Moon, Sun, FileUser, HelpCircle, LogOut, X, Che
 import { hasBaseCv } from "@/lib/cv-storage";
 import { authClient } from "@/lib/auth-client";
 
+const FONTS_LIST = [
+  "DejaVu Sans Mono",
+  "EB Garamond",
+  "Fontin",
+  "Gentium Book Plus",
+  "Lato",
+  "Libertinus Serif",
+  "Mukta",
+  "New Computer Modern",
+  "Noto Sans",
+  "Open Sans",
+  "Open Sauce Sans",
+  "Poppins",
+  "Raleway",
+  "Roboto",
+  "Source Sans 3",
+  "Ubuntu",
+  "XCharter"
+];
+
 const TEMPLATES = [
   "classic",
   "engineeringclassic",
@@ -124,6 +144,8 @@ const DEFAULT_SPANISH_YAML = `cv:
       - reversed_number: El futuro del diseño en la estrategia de marca — Congreso Latam (2024)
 design:
   theme: engineeringclassic
+  typography:
+    font_family: Source Sans 3
 locale:
   language: spanish
 settings:
@@ -310,6 +332,8 @@ function CrearCvContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
+  const [selectedFont, setSelectedFont] = useState<string>("Source Sans 3");
+  const [modalSelectedFont, setModalSelectedFont] = useState<string>("Source Sans 3"); 
 
   const [yamlContent, setYamlContent] = useState<string>(DEFAULT_SPANISH_YAML);
   const [selectedTheme, setSelectedTheme] = useState<string>("engineeringclassic");
@@ -331,6 +355,7 @@ function CrearCvContent() {
 
   // Estados para el Menú de Opciones (3 puntitos) en el Aside y sus Modales de Renombrar / Eliminar
   const [activeMenuCvId, setActiveMenuCvId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   
   // Estados para modales independientes de renombrar y eliminar CV
   const [showRenameModal, setShowRenameModal] = useState<boolean>(false);
@@ -359,12 +384,13 @@ function CrearCvContent() {
   // Estados para el Tutorial Spotlight Interactivo
   const [showTutorial, setShowTutorial] = useState<boolean>(false);
   const [tutorialStep, setTutorialStep] = useState<number>(1);
-  const totalTutorialSteps = 7;
+  const totalTutorialSteps = 8;
 
   const createBtnRef = useRef<HTMLButtonElement>(null);
   const importContainerRef = useRef<HTMLDivElement>(null);
   const adaptBtnRef = useRef<HTMLButtonElement>(null);
   const themeSelectRef = useRef<HTMLDivElement>(null);
+  const fontSelectRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const formToggleRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -569,6 +595,9 @@ function CrearCvContent() {
     if (parsedYamlObj?.locale?.language) {
       setCurrentLang(parsedYamlObj.locale.language);
     }
+    if (parsedYamlObj?.design?.typography?.font_family && FONTS_LIST.includes(parsedYamlObj.design.typography.font_family)) {
+    setSelectedFont(parsedYamlObj.design.typography.font_family);
+    }
   }, [yamlContent]);
 
   const handleConfirmCreateCv = async () => {
@@ -577,6 +606,7 @@ function CrearCvContent() {
       if (parsed) {
         parsed.design = parsed.design || {};
         parsed.design.theme = modalSelectedTheme;
+        parsed.design.typography.font_family = modalSelectedFont;
       }
       const finalYaml = yaml.dump(parsed, { indent: 2, lineWidth: -1 });
       const title = newCvTitleInput || "Nuevo CV";
@@ -603,6 +633,7 @@ function CrearCvContent() {
             setYamlContent(data.cv.yamlContent);
             setLastSavedContent(data.cv.yamlContent);
             setSelectedTheme(modalSelectedTheme); // Sincroniza el select con el modal
+            setSelectedFont(modalSelectedFont);
           }
           setShowCreateModal(false);
         } else {
@@ -620,6 +651,7 @@ function CrearCvContent() {
         setYamlContent(newLocalCv.yamlContent);
         setLastSavedContent(newLocalCv.yamlContent);
         setSelectedTheme(modalSelectedTheme); // Sincroniza el select con el modal
+        setSelectedFont(modalSelectedFont);
         localStorage.setItem("palatime_local_cvs", JSON.stringify(updated));
         setShowCreateModal(false);
       }
@@ -733,10 +765,12 @@ function CrearCvContent() {
       } else if (tutorialStep === 4) {
         if (themeSelectRef.current) targets.push(themeSelectRef.current);
       } else if (tutorialStep === 5) {
-        if (formToggleRef.current) targets.push(formToggleRef.current);
+        if (fontSelectRef.current) targets.push(fontSelectRef.current);
       } else if (tutorialStep === 6) {
-        if (previewRef.current) targets.push(previewRef.current);
+        if (formToggleRef.current) targets.push(formToggleRef.current);
       } else if (tutorialStep === 7) {
+        if (previewRef.current) targets.push(previewRef.current);
+      } else if (tutorialStep === 8) {
         if (downloadRef.current) targets.push(downloadRef.current);
       }
 
@@ -921,6 +955,19 @@ function CrearCvContent() {
       if (parsed) {
         parsed.design = parsed.design || {};
         parsed.design.theme = newTheme;
+        setYamlContent(yaml.dump(parsed, { indent: 2, lineWidth: -1 }));
+      }
+    } catch (e) {}
+  };
+
+  const handleFontChange = (newFont: string) => {
+    setSelectedFont(newFont);
+    try {
+      const parsed: any = yaml.load(yamlContent);
+      if (parsed) {
+        parsed.design = parsed.design || {};
+        parsed.design.typography = parsed.design.typography || {};
+        parsed.design.typography.font_family = newFont;
         setYamlContent(yaml.dump(parsed, { indent: 2, lineWidth: -1 }));
       }
     } catch (e) {}
@@ -1130,6 +1177,7 @@ function CrearCvContent() {
                 executeWithUnsavedCheck(() => {
                   setNewCvTitleInput("Nuevo CV");
                   setModalSelectedTheme("engineeringclassic");
+                  setModalSelectedFont("Source Sans 3");
                   setShowCreateModal(true);
                 });
               }} 
@@ -1178,11 +1226,11 @@ function CrearCvContent() {
               {!isAuthenticated && <span className=" text-[10px] text-amber-400 font-medium flex justify-start items-center"><CloudOff size={15} className=" mx-1"/>Guardado localmente</span>}
             </div>
             
-            <div className="space-y-1 overflow-visible pr-1">
+            <div className="space-y-1 max-h-[210px] overflow-y-auto overflow-x-visible pr-1 relative">
               {userCvs.map((cv) => (
                 <div 
                   key={cv.id} 
-                  className={`group relative px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-between cursor-pointer transition overflow-visible ${
+                  className={`group relative px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-between cursor-pointer transition ${
                     activeCvId === cv.id 
                       ? (isDarkMode ? "bg-[#1D293D] text-white border border-blue-500/30" : "bg-blue-50 text-blue-900 border border-blue-200")
                       : (isDarkMode ? "hover:bg-neutral-800/50 text-neutral-300" : "hover:bg-neutral-100 text-neutral-700")
@@ -1192,34 +1240,50 @@ function CrearCvContent() {
                     <span className="truncate block">{cv.title}</span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0 relative">
                     {activeCvId === cv.id && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
                     
                     {/* Botón de 3 puntitos */}
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        setActiveMenuCvId(activeMenuCvId === cv.id ? null : cv.id);
+                        if (activeMenuCvId === cv.id) {
+                          setActiveMenuCvId(null);
+                          setMenuPosition(null);
+                        } else {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          // Calculamos la posición exacta a la derecha del botón
+                          setMenuPosition({
+                            top: rect.top,
+                            left: rect.right + 8, // 8px de separación a la derecha
+                          });
+                          setActiveMenuCvId(cv.id);
+                        }
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition relative z-30"
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition relative"
                     >
                       <MoreVertical className="w-3.5 h-3.5 opacity-70" />
                     </button>
 
-                    {/* Menú flotante y fondo bloqueador (DIV INVISIBLE) */}
-                    {activeMenuCvId === cv.id && (
+                    {/* Menú flotante con posición fija exacta a la derecha */}
+                    {activeMenuCvId === cv.id && menuPosition && (
                       <>
-                        {/* 1. Div invisible que cubre toda la pantalla para bloquear clics externos y cerrar al presionar fuera */}
+                        {/* Fondo invisible para cerrar al hacer clic afuera */}
                         <div 
                           className="fixed inset-0 z-40 bg-transparent" 
                           onClick={(e) => {
                             e.stopPropagation();
                             setActiveMenuCvId(null);
+                            setMenuPosition(null);
                           }}
                         />
 
-                        {/* 2. Menú de opciones ubicado por encima del div invisible (z-50) */}
-                        <div ref={menuRef} className={`absolute left-full ml-2 top-1/2 -translate-y-1/2 w-32 px-1 rounded-xl shadow-xl border z-50 py-1 text-xs ${isDarkMode ? "bg-[#1D293D] border-white/20 text-white" : "bg-white border-neutral-200 text-neutral-800"}`}>
+                        {/* Menú posicionado de forma fija a la derecha del botón */}
+                        <div 
+                          ref={menuRef} 
+                          style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}
+                          className={`fixed w-32 px-1 rounded-xl shadow-2xl border z-50 py-1 text-xs ${isDarkMode ? "bg-[#1D293D] border-white/20 text-white" : "bg-white border-neutral-200 text-neutral-800"}`}
+                        >
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1227,8 +1291,9 @@ function CrearCvContent() {
                               setRenameInputValue(cv.title);
                               setShowRenameModal(true);
                               setActiveMenuCvId(null);
+                              setMenuPosition(null);
                             }}
-                            className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-blue-500/20 rounded-md"
+                            className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-blue-500/20 rounded-md cursor-pointer"
                           >
                             <Edit2 className="w-3 h-3" /> Renombrar
                           </button>
@@ -1238,8 +1303,9 @@ function CrearCvContent() {
                               setTargetCv(cv);
                               setShowDeleteModal(true);
                               setActiveMenuCvId(null);
+                              setMenuPosition(null);
                             }}
-                            className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-red-400 hover:bg-red-500/20 rounded-md"
+                            className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-red-400 hover:bg-red-500/20 rounded-md cursor-pointer"
                           >
                             <Trash2 className="w-3 h-3" /> Eliminar
                           </button>
@@ -1333,9 +1399,24 @@ function CrearCvContent() {
               </select>
             </div>
 
+            <div ref={fontSelectRef} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs transition-all ${showTutorial && tutorialStep === 5 ? "relative z-50 ring-4 ring-blue-500 bg-[#0F172B] shadow-2xl" : ""} ${isDarkMode ? "bg-[#1D293D] border-[#F8FAFC]/20 text-[#F8FAFC]" : "bg-neutral-100 border-neutral-300 text-slate-800"}`}>
+              <span className="opacity-70 font-medium">Fuente:</span>
+              <select
+                value={selectedFont}
+                onChange={(e) => handleFontChange(e.target.value)}
+                className="bg-transparent font-semibold outline-none cursor-pointer max-w-[130px] truncate"
+              >
+                {FONTS_LIST.map((font) => (
+                  <option key={font} value={font} className={isDarkMode ? "bg-[#0F172B] text-white" : "bg-white text-black"}>
+                    {font}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div 
               ref={formToggleRef}
-              className={`flex p-1 rounded-lg border text-xs transition-all ${showTutorial && tutorialStep === 5 ? "relative z-50 ring-4 ring-blue-500 bg-[#0F172B] shadow-2xl" : ""} ${isDarkMode ? "bg-[#0F172B] border-[#F8FAFC]/20" : "bg-neutral-100 border-neutral-300"}`}
+              className={`flex p-1 rounded-lg border text-xs transition-all ${showTutorial && tutorialStep === 6 ? "relative z-50 ring-4 ring-blue-500 bg-[#0F172B] shadow-2xl" : ""} ${isDarkMode ? "bg-[#0F172B] border-[#F8FAFC]/20" : "bg-neutral-100 border-neutral-300"}`}
             >
               <button
                 onClick={() => setViewMode("yaml")}
@@ -2025,7 +2106,7 @@ function CrearCvContent() {
             {/* Columna Derecha: Vista Previa PDF */}
             <div 
               ref={previewRef}
-              className={`flex flex-col h-full overflow-hidden transition-all ${showTutorial && tutorialStep === 6 ? "relative z-50 ring-4 ring-blue-500 shadow-2xl" : ""} ${isDarkMode ? "bg-[#090D16]" : "bg-neutral-100"}`}
+              className={`flex flex-col h-full overflow-hidden transition-all ${showTutorial && tutorialStep === 7 ? "relative z-50 ring-4 ring-blue-500 shadow-2xl" : ""} ${isDarkMode ? "bg-[#090D16]" : "bg-neutral-100"}`}
             >
               <div className={`px-4 py-2 text-xs border-b font-mono flex justify-between items-center shrink-0 ${isDarkMode ? "bg-[#0F172B] border-[#F8FAFC]/10 text-white/80" : "bg-neutral-100 border-neutral-200 text-neutral-700"}`}>
                 <span>PDF en Vivo</span>
@@ -2040,7 +2121,7 @@ function CrearCvContent() {
                       }
                     }}
                     download={isAuthenticated ? "Mi_CV.pdf" : undefined}
-                    className={`hover:underline -pt-10 font-semibold flex items-center gap-1.5 text-blue-400 transition-all cursor-pointer ${showTutorial && tutorialStep === 7 ? "relative z-50 ring-4 ring-emerald-400 p-1 rounded bg-blue-950 shadow-2xl" : ""}`}
+                    className={`hover:underline -pt-10 font-semibold flex items-center gap-1.5 text-blue-400 transition-all cursor-pointer ${showTutorial && tutorialStep === 8 ? "relative z-50 ring-4 ring-emerald-400 p-1 rounded bg-blue-950 shadow-2xl" : ""}`}
                   >
                     <Download className="w-3.5 h-3.5" />
                     Descargar PDF
@@ -2081,7 +2162,7 @@ function CrearCvContent() {
         >
           <div 
             onClick={(e) => e.stopPropagation()} 
-            className={`w-full max-w-[41.5rem] h-[70vh] rounded-2xl shadow-2xl border flex flex-col overflow-hidden ${isDarkMode ? "bg-[#0F172B] border-white/20 text-white" : "bg-white border-neutral-200 text-slate-900"}`}
+            className={`w-full max-w-[50rem] h-[82vh] rounded-2xl shadow-2xl border flex flex-col overflow-hidden ${isDarkMode ? "bg-[#0F172B] border-white/20 text-white" : "bg-white border-neutral-200 text-slate-900"}`}
           >
             
             <div className="px-6 py-4 flex items-center justify-between shrink-0">
@@ -2122,6 +2203,20 @@ function CrearCvContent() {
                         </button>
                       ))}
                     </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold mb-1 opacity-80">Tipografía</label>
+                    <select
+                      value={modalSelectedFont}
+                      onChange={(e) => setModalSelectedFont(e.target.value)}
+                      className={`w-full border rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer ${isDarkMode ? "bg-[#1D293D] border-white/20 text-white" : "bg-neutral-50 border-neutral-300"}`}
+                    >
+                      {FONTS_LIST.map((font) => (
+                        <option key={font} value={font} className={isDarkMode ? "bg-[#0F172B] text-white" : "bg-white text-black"}>
+                          {font}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -2165,7 +2260,7 @@ function CrearCvContent() {
           <div onClick={(e) => e.stopPropagation()} className={`w-full max-w-md rounded-2xl p-6 shadow-2xl border space-y-4 ${isDarkMode ? "bg-[#0F172B] border-white/20 text-white" : "bg-white border-neutral-200 text-slate-900"}`}>
             <h3 className="text-base font-bold">¡Iniciá sesión para descargar!</h3>
             <p className="text-xs opacity-80 leading-relaxed">
-              Necesitás iniciar sesión con Google para descargar tu CV y guardarlo de forma segura en la nube. ¡No perderás nada de lo que editaste!
+              Necesitás iniciar sesión con Google para descargar tu CV y guardarlo de forma segura en la nube. ¡No vas a perder nada de lo que editaste!
             </p>
             <div className="flex flex-col gap-2.5 pt-2">
               <button
@@ -2261,24 +2356,49 @@ function CrearCvContent() {
 
       {/* MODAL ELIMINAR CV */}
       {showDeleteModal && targetCv && (
-        <div onClick={() => setShowDeleteModal(false)} className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div onClick={(e) => e.stopPropagation()} className={`w-full max-w-md rounded-2xl p-6 shadow-2xl border space-y-4 ${isDarkMode ? "bg-[#0F172B] border-white/20 text-white" : "bg-white border-neutral-200 text-slate-900"}`}>
-            <h3 className="text-base font-bold text-red-400">Eliminar Currículum</h3>
-            <p className="text-xs opacity-80 leading-relaxed">
-              ¿Estás seguro de que deseas eliminar <strong className="text-white">"{targetCv.title}"</strong>? Esta acción no se puede deshacer.
+        <div onClick={() => setShowDeleteModal(false)} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 transition-all">
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className={`w-full max-w-sm rounded-3xl p-6 shadow-2xl border space-y-5 transform transition-all ${
+              isDarkMode 
+                ? "bg-[#0F172B] border-white/10 text-white shadow-black/50" 
+                : "bg-white border-neutral-200 text-slate-900 shadow-xl"
+            }`}
+          >
+            {/* Icono de advertencia superior */}
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${isDarkMode ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600"}`}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className={`text-md font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>Eliminar Currículum</h3>
+              </div>
+            </div>
+
+            {/* Mensaje descriptivo */}
+            <p className={`text-xs leading-relaxed ${isDarkMode ? "text-neutral-300" : "text-neutral-600"}`}>
+              ¿Estás seguro de que deseas eliminar <strong className={`font-semibold ${isDarkMode ? "text-white" : "text-slate-900"}`}>"{targetCv.title}"</strong>? <br></br> Perderás todo el contenido guardado en este archivo.
             </p>
-            <div className="flex justify-end gap-3 pt-2">
+
+            {/* Botones de acción */}
+            <div className="flex items-center justify-end gap-2.5 pt-2">
               <button 
                 onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 rounded-xl border text-xs font-semibold hover:bg-neutral-500/10 transition"
+                className={`px-4 py-2.5 rounded-xl border text-xs font-semibold transition ${
+                  isDarkMode 
+                    ? "border-white/10 hover:bg-white/5 text-neutral-300" 
+                    : "border-neutral-200 hover:bg-neutral-100 text-neutral-700"
+                }`}
               >
                 Cancelar
               </button>
               <button 
                 onClick={handleConfirmDelete}
-                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-md transition"
+                className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-600/20 transition cursor-pointer"
               >
-                Eliminar
+                Sí, eliminar
               </button>
             </div>
           </div>
@@ -2342,6 +2462,15 @@ function CrearCvContent() {
 
               {tutorialStep === 5 && (
                 <div className="space-y-2">
+                  <h3 className="text-base font-bold">Selección de Tipografía</h3>
+                  <p className="text-xs opacity-80 leading-relaxed">
+                    Personaliza el estilo tipográfico de tu currículum eligiendo entre una amplia variedad de fuentes profesionales adaptadas para documentos formales.
+                  </p>
+                </div>
+              )}
+
+              {tutorialStep === 6 && (
+                <div className="space-y-2">
                   <h3 className="text-base font-bold">Formulario Visual Intuitivo</h3>
                   <p className="text-xs opacity-80 leading-relaxed">
                     Si preferís no usar código, cambia al modo Formulario Jerárquico para rellenar tus datos personales, experiencia y proyectos mediante campos guiados.
@@ -2349,7 +2478,7 @@ function CrearCvContent() {
                 </div>
               )}
 
-              {tutorialStep === 6 && (
+              {tutorialStep === 7 && (
                 <div className="space-y-2">
                   <h3 className="text-base font-bold">Vista Previa en Vivo</h3>
                   <p className="text-xs opacity-80 leading-relaxed">
@@ -2358,7 +2487,7 @@ function CrearCvContent() {
                 </div>
               )}
 
-              {tutorialStep === 7 && (
+              {tutorialStep === 8 && (
                 <div className="space-y-2">
                   <h3 className="text-base font-bold">Descarga y Exportación</h3>
                   <p className="text-xs opacity-80 leading-relaxed">
@@ -2402,78 +2531,73 @@ function CrearCvContent() {
   );
 }
 
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { encrypt, decrypt } from "@/lib/encryption";
+// Nota: Aquí deberás importar tu helper de sesión de Better Auth según cómo lo manejes
+import { auth } from "@/lib/auth"; 
+import { headers } from "next/headers";
 
+export async function GET(req: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: await headers()
+  });
 
+  if (!session) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
 
+  try {
+    const cvs = await prisma.cv.findMany({
+      where: { userId: session.user.id },
+      orderBy: { updatedAt: "desc" },
+    });
 
+    // Desciframos el contenido de cada CV antes de enviarlo al cliente
+    const decryptedCvs = cvs.map(cv => ({
+      ...cv,
+      yamlContent: decrypt(cv.yamlContent),
+    }));
 
+    return NextResponse.json({ cvs: decryptedCvs });
+  } catch (error) {
+    return NextResponse.json({ error: "Error al obtener los CVs" }, { status: 500 });
+  }
+}
 
+export async function POST(req: NextRequest) {
+  const session = await auth.api.getSession({
+    headers: await headers()
+  });
 
-Para integrar la nueva funcionalidad de customización avanzada y asegurar que el código quede robusto, debés agregar las siguientes definiciones, validaciones y componentes en las ubicaciones específicas del archivo.
+  if (!session) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
 
-1. Nuevas constantes de configuración
-Agregá estas opciones cerca de los arreglos globales (por ejemplo, debajo de SOCIAL_NETWORKS_LIST) para manejar fuentes, colores y tamaños de página:
-TypeScript
+  try {
+    const body = await req.json();
+    const { title, yamlContent } = body;
 
-const FONT_OPTIONS = ["Liberation Sans", "Roboto", "Lato", "Open Sans", "Montserrat"];
-const COLOR_THEMES = [
-  { name: "Slate Dark", primary: "#0F172B", accent: "#3B82F6" },
-  { name: "Classic Navy", primary: "#1E3A8A", accent: "#2563EB" },
-  { name: "Emerald Pro", primary: "#064E3B", accent: "#059669" },
-  { name: "Burgundy", primary: "#7F1D1D", accent: "#DC2626" },
-];
-const PAGE_SIZES = ["A4", "Letter"];
+    if (!yamlContent) {
+      return NextResponse.json({ error: "Contenido YAML vacío" }, { status: 400 });
+    }
 
-2. Ampliar el esquema del documento YAML predeterminado
-Actualizá el objeto DEFAULT_SPANISH_YAML para incluir las propiedades de diseño avanzado dentro del bloque design:
-YAML
+    // Ciframos los datos sensibles del CV antes de guardarlos en PostgreSQL
+    const encryptedYaml = encrypt(yamlContent);
 
-design:
-  theme: engineeringclassic
-  font: Liberation Sans
-  color: "#0F172B"
-  page_size: A4
+    const newCv = await prisma.cv.create({
+      data: {
+        userId: session.user.id,
+        title: title || "Mi CV",
+        yamlContent: encryptedYaml,
+      },
+    });
 
-3. Estados para los controles visuales avanzados
-Agregá estos estados dentro de la función CrearCvContent junto al resto de los hooks useState:
-TypeScript
-
-const [selectedFont, setSelectedFont] = useState<string>("Liberation Sans");
-const [selectedColor, setSelectedColor] = useState<string>("#0F172B");
-const [selectedPageSize, setSelectedPageSize] = useState<string>("A4");
-
-4. Panel de controles de diseño en la barra superior (header)
-Agregá este bloque dentro del <header> principal, junto al selector de plantillas existente, para permitir modificar tipografía y tamaño de hoja en tiempo real:
-TypeScript
-
-<div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${isDarkMode ? "bg-[#1D293D] border-[#F8FAFC]/20 text-[#F8FAFC]" : "bg-neutral-100 border-neutral-300 text-slate-800"}`}>
-  <span className="opacity-70 font-medium">Fuente:</span>
-  <select
-    value={selectedFont}
-    onChange={(e) => {
-      setSelectedFont(e.target.value);
-      updateYamlData(o => { o.design = o.design || {}; o.design.font = e.target.value; });
-    }}
-    className="bg-transparent font-semibold outline-none cursor-pointer"
-  >
-    {FONT_OPTIONS.map((f) => (
-      <option key={f} value={f} className={isDarkMode ? "bg-[#0F172B] text-white" : "bg-white text-black"}>{f}</option>
-    ))}
-  </select>
-</div>
-
-<div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${isDarkMode ? "bg-[#1D293D] border-[#F8FAFC]/20 text-[#F8FAFC]" : "bg-neutral-100 border-neutral-300 text-slate-800"}`}>
-  <span className="opacity-70 font-medium">Hoja:</span>
-  <select
-    value={selectedPageSize}
-    onChange={(e) => {
-      setSelectedPageSize(e.target.value);
-      updateYamlData(o => { o.design = o.design || {}; o.design.page_size = e.target.value; });
-    }}
-    className="bg-transparent font-semibold outline-none cursor-pointer"
-  >
-    {PAGE_SIZES.map((size) => (
-      <option key={size} value={size} className={isDarkMode ? "bg-[#0F172B] text-white" : "bg-white text-black"}>{size}</option>
-    ))}
-  </select>
-</div>
+    return NextResponse.json({ 
+      success: true, 
+      cv: { ...newCv, yamlContent } // Devolvemos el original al cliente
+    });
+  } catch (error) {
+    return NextResponse.json({ error: "Error al guardar el CV" }, { status: 500 });
+  }
+}

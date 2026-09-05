@@ -6,6 +6,7 @@ import CvPreview from "@/components/CvPreview";
 import { getBaseCv, saveAdaptation } from "@/lib/cv-storage";
 import { Cv } from "@/lib/cv-schema";
 import { Moon, Sun, ArrowLeft, Sparkles, Building2, Briefcase } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
 
 function guessTitleAndCompany(text: string): { title: string; company: string } {
   const firstLine = text.trim().split("\n").find((l) => l.trim().length > 3) ?? "";
@@ -23,6 +24,19 @@ export default function AdaptarPage() {
   
   // Estado para el modo oscuro/claro coherente con el resto de la app
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
+
+  const { data: session, isPending } = authClient.useSession();
+  const isAuthenticated = !!session;
+
+  // Redirige al home si NO está logueado
+  useEffect(() => {
+    if (!isPending && !isAuthenticated) {
+      router.push("/"); 
+    }
+  }, [isAuthenticated, isPending, router]);
+
+  // Si está cargando o NO está autenticado, no renderiza nada para evitar parpadeos
+  if (isPending || !isAuthenticated) return null;
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("palatime_dark_mode");

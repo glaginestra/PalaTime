@@ -43,11 +43,17 @@ export default function HomePage() {
   const isAuthenticated = !!session;
 
   useEffect(() => {
+    if (!isPending && isAuthenticated) {
+      router.push("/"); // O la ruta a la que quieras redirigirlo (ej: "/dashboard")
+    }
+  }, [isAuthenticated, isPending, router]);
+
+  useEffect(() => {
     setChecked(true);
     setIsBaseCvMissing(!hasBaseCv());
   }, [router]);
 
-  if (!checked || isPending) return null;
+  if (!checked || isPending || isAuthenticated) return null;
 
   const triggerLoginAttention = () => {
     loginSectionRef.current?.scrollIntoView({ behavior: "smooth" });

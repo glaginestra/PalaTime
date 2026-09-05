@@ -355,6 +355,7 @@ function CrearCvContent() {
 
   // Estados para el Menú de Opciones (3 puntitos) en el Aside y sus Modales de Renombrar / Eliminar
   const [activeMenuCvId, setActiveMenuCvId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   
   // Estados para modales independientes de renombrar y eliminar CV
   const [showRenameModal, setShowRenameModal] = useState<boolean>(false);
@@ -417,37 +418,6 @@ function CrearCvContent() {
   const { data: session, isPending } = authClient.useSession();
   const isAuthenticated = !!session;
 
-  // Lógica de migración automática de invitadx a logueadx al autenticarse
-  useEffect(() => {
-    const migrateLocalCvsToBackend = async () => {
-      if (!isAuthenticated) return;
-      const localCvsStr = localStorage.getItem("palatime_local_cvs");
-      if (!localCvsStr) return;
-
-      try {
-        const localCvs = JSON.parse(localCvsStr);
-        if (Array.isArray(localCvs) && localCvs.length > 0) {
-          for (const localCv of localCvs) {
-            await fetch("/api/cvs", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                title: localCv.title || "CV Migrado",
-                yamlContent: localCv.yamlContent || DEFAULT_SPANISH_YAML,
-              }),
-            });
-          }
-          // Limpiar localStorage una vez migrados con éxito para usar la DB definitivamente
-          localStorage.removeItem("palatime_local_cvs");
-        }
-      } catch (e) {
-        console.error("Error migrando CVs locales:", e);
-      }
-    };
-
-    migrateLocalCvsToBackend();
-  }, [isAuthenticated]);
-
   // Detectar cambios no guardados al cerrar la pestaña o recargar (beforeunload)
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -492,14 +462,23 @@ function CrearCvContent() {
     return () => clearTimeout(timer);
   }, [yamlContent, lastSavedContent, activeCvId, isAuthenticated, userCvs]);
 
-  // Lógica de carga de CVs (Invitado vs Logueado) y Tutorial Inicial automático
+  // Lógica unificada para migración inteligente, limpia y sin loops
   useEffect(() => {
-    const initializeCvs = async () => {
-      // Verificar tutorial por primera vez
+    const initializeAndMigrateCvs = async () => {
       const seenTutorial = localStorage.getItem("palatime_tutorial_seen");
       if (!seenTutorial) {
         setShowTutorial(true);
         localStorage.setItem("palatime_tutorial_seen", "true");
+      }
+
+      const localCvsStr = localStorage.getItem("palatime_local_cvs");
+      let localCvs = [];
+      try {
+        if (localCvsStr) {
+          localCvs = JSON.parse(localCvsStr);
+        }
+      } catch (e) {
+        console.error("Error parseando CVs locales:", e);
       }
 
       if (isAuthenticated) {
@@ -507,13 +486,47 @@ function CrearCvContent() {
           const res = await fetch("/api/cvs");
           if (res.ok) {
             const data = await res.json();
-            if (data.cvs && data.cvs.length > 0) {
-              setUserCvs(data.cvs);
-              setActiveCvId(data.cvs[0].id);
-              setYamlContent(data.cvs[0].yamlContent);
-              setLastSavedContent(data.cvs[0].yamlContent);
-            } else {
-              // Si está logueado pero no tiene CVs, crear automáticamente "Nuevo CV" en BD
+            let dbCvs = data.cvs || [];
+
+            // 1. FILTRADO INTELIGENTE: Solo conservar y migrar CVs que el usuario editó o creó explícitamente en invitado.
+            // Descartamos los "Nuevo CV" genéricos que mantienen el contenido por defecto exacto y no se renombraron.
+            const modifiedLocalCvs = Array.isArray(localCvs) ? localCvs.filter((cv: any) => {
+              const isDefaultTitle = cv.title === "Nuevo CV" || cv.title === "Nuevo CV 1";
+              const isDefaultContent = cv.yamlContent === DEFAULT_SPANISH_YAML;
+              // Solo se migra si fue renombrado o si su contenido fue modificado
+              return !isDefaultTitle || !isDefaultContent;
+            }) : [];
+
+            // 2. MIGRACIÓN DE CVs MODIFICADOS
+            if (modifiedLocalCvs.length > 0) {
+              for (const localCv of modifiedLocalCvs) {
+                try {
+                  const createRes = await fetch("/api/cvs", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      title: localCv.title || "CV Migrado",
+                      yamlContent: localCv.yamlContent || DEFAULT_SPANISH_YAML,
+                    }),
+                  });
+
+                  if (createRes.ok) {
+                    const createdData = await createRes.json();
+                    if (createdData.cv) {
+                      dbCvs.push(createdData.cv);
+                    }
+                  }
+                } catch (err) {
+                  console.error(`Error al sincronizar el CV local ${localCv.id}:`, err);
+                }
+              }
+            }
+
+            // Limpiamos el storage local de invitados para evitar bucles o migraciones repetidas
+            localStorage.removeItem("palatime_local_cvs");
+
+            // 3. SI LA BD ESTÁ COMPLETAMENTE VACÍA (y el usuario no tenía nada modificado), creamos uno por defecto limpio
+            if (dbCvs.length === 0) {
               const createRes = await fetch("/api/cvs", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -525,36 +538,33 @@ function CrearCvContent() {
               if (createRes.ok) {
                 const newData = await createRes.json();
                 if (newData.cv) {
-                  setUserCvs([newData.cv]);
-                  setActiveCvId(newData.cv.id);
-                  setYamlContent(newData.cv.yamlContent);
-                  setLastSavedContent(newData.cv.yamlContent);
+                  dbCvs = [newData.cv];
                 }
               }
+            }
+
+            setUserCvs(dbCvs);
+            if (dbCvs.length > 0) {
+              setActiveCvId(dbCvs[0].id);
+              setYamlContent(dbCvs[0].yamlContent);
+              setLastSavedContent(dbCvs[0].yamlContent);
             }
           }
         } catch (err) {
           console.error("Error al sincronizar CVs con backend:", err);
         }
       } else {
-        // Modo Invitado: Manejo en LocalStorage
-        const localCvs = localStorage.getItem("palatime_local_cvs");
-        if (localCvs) {
-          try {
-            const parsedCvs = JSON.parse(localCvs);
-            if (parsedCvs.length > 0) {
-              setUserCvs(parsedCvs);
-              setActiveCvId(parsedCvs[0].id);
-              setYamlContent(parsedCvs[0].yamlContent);
-              setLastSavedContent(parsedCvs[0].yamlContent);
-              return;
-            }
-          } catch (e) {}
+        // Modo Invitado
+        if (Array.isArray(localCvs) && localCvs.length > 0) {
+          setUserCvs(localCvs);
+          setActiveCvId(localCvs[0].id);
+          setYamlContent(localCvs[0].yamlContent);
+          setLastSavedContent(localCvs[0].yamlContent);
+          return;
         }
 
-        // Crear CV local por defecto "Nuevo CV"
         const defaultLocalCv = {
-          id: "local-cv-1",
+          id: `local-cv-${crypto.randomUUID()}`,
           title: "Nuevo CV",
           yamlContent: DEFAULT_SPANISH_YAML,
         };
@@ -566,7 +576,7 @@ function CrearCvContent() {
       }
     };
 
-    initializeCvs();
+    initializeAndMigrateCvs();
   }, [isAuthenticated]);
 
   const executeWithUnsavedCheck = (action: () => void) => {
@@ -640,7 +650,7 @@ function CrearCvContent() {
         }
       } else {
         const newLocalCv = {
-          id: `local-cv-${Date.now()}`,
+          id: `local-cv-${crypto.randomUUID()}`,
           title,
           yamlContent: finalYaml,
         };
@@ -1202,7 +1212,6 @@ function CrearCvContent() {
               >
                 <Upload className="w-4 h-4 mb-1 text-blue-500" />
                 <span className="text-xs font-medium">Importá tu PDF / Word</span>
-                <span className="text-[10px] opacity-60">También podes arrastrar y soltar el archivo</span>
                 <input type="file" accept=".pdf,.doc,.docx" onChange={handleProtectedImport} disabled={isParsing} className="hidden" />
               </label>
             </div>
@@ -1225,11 +1234,11 @@ function CrearCvContent() {
               {!isAuthenticated && <span className=" text-[10px] text-amber-400 font-medium flex justify-start items-center"><CloudOff size={15} className=" mx-1"/>Guardado localmente</span>}
             </div>
             
-            <div className="space-y-1 max-h-[210px] overflow-y-auto pr-1">
+            <div className="space-y-1 max-h-[210px] overflow-y-auto overflow-x-visible pr-1 relative">
               {userCvs.map((cv) => (
                 <div 
                   key={cv.id} 
-                  className={`group relative px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-between cursor-pointer transition overflow-visible ${
+                  className={`group relative px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-between cursor-pointer transition ${
                     activeCvId === cv.id 
                       ? (isDarkMode ? "bg-[#1D293D] text-white border border-blue-500/30" : "bg-blue-50 text-blue-900 border border-blue-200")
                       : (isDarkMode ? "hover:bg-neutral-800/50 text-neutral-300" : "hover:bg-neutral-100 text-neutral-700")
@@ -1239,34 +1248,50 @@ function CrearCvContent() {
                     <span className="truncate block">{cv.title}</span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0 relative">
                     {activeCvId === cv.id && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
                     
                     {/* Botón de 3 puntitos */}
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        setActiveMenuCvId(activeMenuCvId === cv.id ? null : cv.id);
+                        if (activeMenuCvId === cv.id) {
+                          setActiveMenuCvId(null);
+                          setMenuPosition(null);
+                        } else {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          // Calculamos la posición exacta a la derecha del botón
+                          setMenuPosition({
+                            top: rect.top,
+                            left: rect.right + 8, // 8px de separación a la derecha
+                          });
+                          setActiveMenuCvId(cv.id);
+                        }
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition relative z-30"
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition relative"
                     >
                       <MoreVertical className="w-3.5 h-3.5 opacity-70" />
                     </button>
 
-                    {/* Menú flotante y fondo bloqueador (DIV INVISIBLE) */}
-                    {activeMenuCvId === cv.id && (
+                    {/* Menú flotante con posición fija exacta a la derecha */}
+                    {activeMenuCvId === cv.id && menuPosition && (
                       <>
-                        {/* 1. Div invisible que cubre toda la pantalla para bloquear clics externos y cerrar al presionar fuera */}
+                        {/* Fondo invisible para cerrar al hacer clic afuera */}
                         <div 
                           className="fixed inset-0 z-40 bg-transparent" 
                           onClick={(e) => {
                             e.stopPropagation();
                             setActiveMenuCvId(null);
+                            setMenuPosition(null);
                           }}
                         />
 
-                        {/* 2. Menú de opciones ubicado por encima del div invisible (z-50) */}
-                        <div ref={menuRef} className={`absolute left-full ml-2 top-1/2 -translate-y-1/2 w-32 px-1 rounded-xl shadow-xl border z-50 py-1 text-xs ${isDarkMode ? "bg-[#1D293D] border-white/20 text-white" : "bg-white border-neutral-200 text-neutral-800"}`}>
+                        {/* Menú posicionado de forma fija a la derecha del botón */}
+                        <div 
+                          ref={menuRef} 
+                          style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}
+                          className={`fixed w-32 px-1 rounded-xl shadow-2xl border z-50 py-1 text-xs ${isDarkMode ? "bg-[#1D293D] border-white/20 text-white" : "bg-white border-neutral-200 text-neutral-800"}`}
+                        >
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1274,8 +1299,9 @@ function CrearCvContent() {
                               setRenameInputValue(cv.title);
                               setShowRenameModal(true);
                               setActiveMenuCvId(null);
+                              setMenuPosition(null);
                             }}
-                            className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-blue-500/20 rounded-md"
+                            className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-blue-500/20 rounded-md cursor-pointer"
                           >
                             <Edit2 className="w-3 h-3" /> Renombrar
                           </button>
@@ -1285,8 +1311,9 @@ function CrearCvContent() {
                               setTargetCv(cv);
                               setShowDeleteModal(true);
                               setActiveMenuCvId(null);
+                              setMenuPosition(null);
                             }}
-                            className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-red-400 hover:bg-red-500/20 rounded-md"
+                            className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-red-400 hover:bg-red-500/20 rounded-md cursor-pointer"
                           >
                             <Trash2 className="w-3 h-3" /> Eliminar
                           </button>
@@ -1312,7 +1339,7 @@ function CrearCvContent() {
 
           <div 
             ref={authSectionRef}
-            className={`space-y-4 pt-4 border border-neutral-700/20 transition-all duration-500 rounded-2xl p-2 ${
+            className={`space-y-4 pt-4 ${!isAuthenticated ? 'border' : 'border-0' } border-neutral-700/20 transition-all duration-500 rounded-2xl p-2 ${
               shouldHighlightAuth ? "ring-4 ring-blue-500 bg-blue-500/10" : ""
             }`}
           >
@@ -2241,7 +2268,7 @@ function CrearCvContent() {
           <div onClick={(e) => e.stopPropagation()} className={`w-full max-w-md rounded-2xl p-6 shadow-2xl border space-y-4 ${isDarkMode ? "bg-[#0F172B] border-white/20 text-white" : "bg-white border-neutral-200 text-slate-900"}`}>
             <h3 className="text-base font-bold">¡Iniciá sesión para descargar!</h3>
             <p className="text-xs opacity-80 leading-relaxed">
-              Necesitás iniciar sesión con Google para descargar tu CV y guardarlo de forma segura en la nube. ¡No perderás nada de lo que editaste!
+              Necesitás iniciar sesión con Google para descargar tu CV y guardarlo de forma segura en la nube. ¡No vas a perder nada de lo que editaste!
             </p>
             <div className="flex flex-col gap-2.5 pt-2">
               <button
@@ -2337,24 +2364,49 @@ function CrearCvContent() {
 
       {/* MODAL ELIMINAR CV */}
       {showDeleteModal && targetCv && (
-        <div onClick={() => setShowDeleteModal(false)} className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div onClick={(e) => e.stopPropagation()} className={`w-full max-w-md rounded-2xl p-6 shadow-2xl border space-y-4 ${isDarkMode ? "bg-[#0F172B] border-white/20 text-white" : "bg-white border-neutral-200 text-slate-900"}`}>
-            <h3 className="text-base font-bold text-red-400">Eliminar Currículum</h3>
-            <p className="text-xs opacity-80 leading-relaxed">
-              ¿Estás seguro de que deseas eliminar <strong className="text-white">"{targetCv.title}"</strong>? Esta acción no se puede deshacer.
+        <div onClick={() => setShowDeleteModal(false)} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 transition-all">
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className={`w-full max-w-sm rounded-3xl p-6 shadow-2xl border space-y-5 transform transition-all ${
+              isDarkMode 
+                ? "bg-[#0F172B] border-white/10 text-white shadow-black/50" 
+                : "bg-white border-neutral-200 text-slate-900 shadow-xl"
+            }`}
+          >
+            {/* Icono de advertencia superior */}
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${isDarkMode ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600"}`}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className={`text-md font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>Eliminar Currículum</h3>
+              </div>
+            </div>
+
+            {/* Mensaje descriptivo */}
+            <p className={`text-xs leading-relaxed ${isDarkMode ? "text-neutral-300" : "text-neutral-600"}`}>
+              ¿Estás seguro de que deseas eliminar <strong className={`font-semibold ${isDarkMode ? "text-white" : "text-slate-900"}`}>"{targetCv.title}"</strong>? <br></br> Perderás todo el contenido guardado en este archivo.
             </p>
-            <div className="flex justify-end gap-3 pt-2">
+
+            {/* Botones de acción */}
+            <div className="flex items-center justify-end gap-2.5 pt-2">
               <button 
                 onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 rounded-xl border text-xs font-semibold hover:bg-neutral-500/10 transition"
+                className={`px-4 py-2.5 rounded-xl border text-xs font-semibold transition ${
+                  isDarkMode 
+                    ? "border-white/10 hover:bg-white/5 text-neutral-300" 
+                    : "border-neutral-200 hover:bg-neutral-100 text-neutral-700"
+                }`}
               >
                 Cancelar
               </button>
               <button 
                 onClick={handleConfirmDelete}
-                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-md transition"
+                className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-600/20 transition cursor-pointer"
               >
-                Eliminar
+                Sí, eliminar
               </button>
             </div>
           </div>
