@@ -1,0 +1,156 @@
+Hice la prueba devuelta con 3 CV distintos para ver la versatilidad y como responde a los cambios ya sea de titulos como de estructura de cv:
+
+Primer Cv era este:
+Última actualización Ago 2026
+Gastón Nicolás Laginestra
+Estudiante de Ingeniería en Informática | Desarrollador Full-Stack
+ San Cristóbal, CABA, Argentina  gnlaginestra@gmail.com  011 2322-3519
+ portfolio-blue-tau-52.vercel.app  gaston-laginestra  glaginestra
+Perfil
+Estudiante de Ingeniería en Informática con experiencia en desarrollo web full-stack. Apasionado por crear
+soluciones escalables y seguras, integrando APIs, bases de datos y sistemas de autenticación. Busco aplicar
+mis conocimientos en proyectos profesionales, perfeccionar mis habilidades técnicas y contribuir en equipos
+de desarrollo.
+Educación
+Universidad Argentina de la Empresa (UADE), Ingeniería en Informática Mar 2023 – presente
+• Situación: Estudiante de 4to Año (Fecha Estimada de Graduación: Diciembre 2028)
+Instituto Industrial Luis A. Huergo, Técnico Químico Mar 2016 – Dic 2022
+Proyectos Personales
+E-commerce "BairesCandyBox"
+Desarrollé una aplicación web full‑stack con React, Node.js, Express y PostgreSQL, orientada a la venta de
+productos personalizados para eventos. La plataforma incluye un sistema de registro y verificación de cuentas
+mediante correo electrónico con Nodemailer y Gmail SMTP, además de funcionalidades para la gestión de
+productos y consultas de clientes.
+Sistema de Persistencia Políglota – Supermercado
+Diseñé un sistema de persistencia poliglota utilizando MongoDB, Neo4j y Cassandra, capaz de procesar y
+simular más de 500.000 transacciones diarias con datos en streaming de baja latencia.
+Habilidades
+Lenguajes: Python, JavaScript, Java, TypeScript, HTML, CSS
+Frameworks & Librerías: React, Node.js, Express, Tailwind CSS, Django, Bootstrap, Flask
+Bases de Datos: PostgreSQL, SQLite, SQL Server, SQLAlchemy, MongoDB, Cassandra, MySQL, Neo4j
+Herramientas: Docker, VS Code, Git, GitHub
+Habilidades Blandas: Trabajo en equipo, Adaptabilidad, Pensamiento crítico, Organización, Gestión del tiem-
+po, Aprendizaje continuo
+Idiomas: Español: Nativo, Inglés: Intermedio
+Gastón Nicolás Laginestra – 1/1
+
+Y me devolvio esto:
+
+
+
+
+
+
+
+
+El segundo era este:
+Olivia Wilson
+Diseñadora gráfica - Medellín, Colombia
+(316) 212-3456 - hola@unsitioestupendo.com.co
+PERFIL PROFESIONAL
+Lorem ipsum dolor sit amet consectetur adipiscing elit inceptos, hendrerit
+mi class maecenas cursus volutpat etiam malesuada facilisi, platea duis taciti
+sapien ante luctus proin. Sociis tempor nulla ultrices cras mollis diam et
+etiam pharetra augue, montes hac euismod risus magna.
+EXPERIENCIA LABORAL
+Experiencia 1
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.
+Duis aute irure dolor in reprehenderit in voluptate velit esse.
+Enero 2023 - Actualmente
+Experiencia 2
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.
+Duis aute irure dolor in reprehenderit in voluptate velit esse.
+Febrero 2023 - Diciembre 2023
+Experiencia 3
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.
+Duis aute irure dolor in reprehenderit in voluptate velit esse.
+Febrero 2023 - Diciembre 2023
+EDUCACIÓN
+Título académico
+Institución educativa
+Año de finalización
+Febrero 2023 - Diciembre 2023
+IDIOMAS
+Inglés: Nivel avanzado
+Frances: Nivel intermedio
+
+Y me devolvio esto:
+
+
+
+
+
+
+
+Y el tercero era este:
+EXPERIENCIA LABORAL
+SANDRA
+HARO
+PERFIL PERSONAL
+Profesional con más de 6 años de
+experiencia en marketing digital y
+comunicación. Apasionada por las redes
+sociales, el branding y la creación de
+contenido estratégico orientado a
+resultados.
+ÁREAS DE ESPECIALIZACIÓNTeleventas y tareas comerciales
+Copywriting para blog y redes sociales
+Ventas
+Email marketing
+Diseño y edición de publicaciones
+Organización de eventos
+INFORMACIÓN DE CONTACTOCorreo electrónico: sandra.haro@gmail.com
+Teléfono: +34-93-4567-890
+Web: www.sandraharo.es
+UNIVERSIDAD BORCELLEMáster en Branding digital
+Octubre de 2020 - Junio de 2021
+HISTORIAL ACADÉMICO
+UNIVERSIDAD LARANAGrado en Negocios y Marketing
+Septiembre de 2014 - Junio de 2018
+CURSOS Y ESPECIALIZACIONES
+ENSIGNADiplomado en Marketing Digital para Campañas
+Agosto de 2021IDIOMASEspañol: nativo
+Inglés: C1
+Catalán: C1
+Francés: B2
+EL PULPO SIMPATICOCurso de Marketing Digital Avanzado
+Mayo - Junio de 2020
+ESTUDIO SHONOSEspecialista en Análisis Internacional
+Octubre - Marzo de 2020
+ESPECIALISTA DE MARKETING Y DESARROLLO COMERCIAL
+Diseño y ejecución de campañas de marketing B2B. Gestión de
+cartera de clientes, captación de nuevos leads y elaboración de
+informes de rendimiento mensuales para la dirección comercial.
+Vandiere | Septiembre de 2018 - Septiembre de 2020
+FAUGETCurso de Francés Intensivo (B2)
+Marzo - Agosto de 2019
+INTERESESMarketing de contenidos y tendencias digitales
+Viajes y fotografía
+Yoga y senderismo
+BORCELLECurso de Diseño Web
+Diciembre de 2021
+ASISTENTE DE COMUNICACIÓN Y MARKETING
+Apoyo en la redacción de notas de prensa, gestión de la agenda
+de comunicación y coordinación de eventos corporativos.
+Colaboración en el lanzamiento de dos nuevos productos al
+mercado nacional.
+Industrias López | Enero de 2018 - Julio de 2018
+CONSULTORA EN IMAGEN Y RRSS
+Gestión de la imagen corporativa y redes sociales de la empresa.
+Creación de estrategias de contenido, aumento del 40% en
+seguidores en 12 meses y coordinación con agencias externas
+de publicidad.
+Borcelle | Julio de 2021 - actualidad
+
+y me devolvio esto:
+
+
+
+
+

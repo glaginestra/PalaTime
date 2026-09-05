@@ -1,133 +1,191 @@
+"use client";
+
 import { Cv } from "@/lib/cv-schema";
 
 export default function CvPreview({ cv }: { cv: Cv }) {
-  const { personalInfo } = cv;
+  // Aseguramos fallback a objeto seguro sin romper el renderizado
+  const safeCv = cv || {};
+  const personalInfo = safeCv.personalInfo || {
+    fullName: "",
+    headline: "",
+    location: "",
+    phone: "",
+    email: "",
+    website: "",
+    linkedin: "",
+    github: "",
+  };
+
+  const experience = safeCv.experience || [];
+  const education = safeCv.education || [];
+  const projects = safeCv.projects || [];
+  const skills = safeCv.skills || [];
+  const softSkills = safeCv.softSkills || [];
+  const languages = safeCv.languages || [];
 
   return (
-    <div className="bg-white text-neutral-900 shadow-sm border border-neutral-200 rounded-lg p-8 w-full max-w-[750px] mx-auto text-[13px] leading-relaxed">
-      <header className="mb-4">
-        <h1 className="text-2xl font-semibold">
-          {personalInfo.fullName || "Tu nombre completo"}
+    <div className="bg-white text-neutral-900 shadow-sm border border-neutral-200 rounded-lg p-8 w-full max-w-[750px] mx-auto text-[13px] leading-relaxed font-sans">
+      <header className="border-b border-neutral-200 pb-4 mb-6">
+        <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">
+          {personalInfo.fullName || "Tu Nombre"}
         </h1>
         {personalInfo.headline && (
-          <p className="text-neutral-600 mt-0.5">{personalInfo.headline}</p>
+          <p className="text-sm font-medium text-neutral-600 mt-0.5">
+            {personalInfo.headline}
+          </p>
         )}
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-neutral-500 text-[12px] mt-1">
-          {personalInfo.location && <span>{personalInfo.location}</span>}
-          {personalInfo.email && <span>{personalInfo.email}</span>}
-          {personalInfo.phone && <span>{personalInfo.phone}</span>}
-          {personalInfo.website && <span>{personalInfo.website}</span>}
-          {personalInfo.linkedin && <span>{personalInfo.linkedin}</span>}
-          {personalInfo.github && <span>{personalInfo.github}</span>}
+
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-500 mt-3">
+          {personalInfo.location && <span>📍 {personalInfo.location}</span>}
+          {personalInfo.email && <span>✉️ {personalInfo.email}</span>}
+          {personalInfo.phone && <span>📞 {personalInfo.phone}</span>}
+          {personalInfo.website && <span>🌐 {personalInfo.website}</span>}
+          {personalInfo.linkedin && <span>🔗 {personalInfo.linkedin}</span>}
+          {personalInfo.github && <span>💻 {personalInfo.github}</span>}
         </div>
       </header>
 
-      {cv.summary && (
-        <Section title="Resumen">
-          <p>{cv.summary}</p>
-        </Section>
+      {safeCv.summary && (
+        <section className="mb-6">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1.5">
+            Perfil Profesional
+          </h2>
+          <p className="text-neutral-700 whitespace-pre-line">{safeCv.summary}</p>
+        </section>
       )}
 
-      {cv.experience.length > 0 && (
-        <Section title="Experiencia">
-          {cv.experience.map((exp) => (
-            <div key={exp.id} className="mb-3 last:mb-0">
-              <div className="flex justify-between items-baseline">
-                <p className="font-medium">
-                  {exp.role} · {exp.company}
-                </p>
-                <p className="text-neutral-500 text-[12px] whitespace-nowrap ml-2">
-                  {exp.startDate} — {exp.current ? "presente" : exp.endDate}
-                </p>
-              </div>
-              {exp.location && (
-                <p className="text-neutral-500 text-[12px]">{exp.location}</p>
-              )}
-              {exp.bullets.length > 0 && (
-                <ul className="list-disc ml-4 mt-1 space-y-0.5">
-                  {exp.bullets.map((b, i) => (
-                    <li key={i}>{b}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ))}
-        </Section>
-      )}
-
-      {cv.education.length > 0 && (
-        <Section title="Educación">
-          {cv.education.map((ed) => (
-            <div key={ed.id} className="mb-2 last:mb-0">
-              <div className="flex justify-between items-baseline">
-                <p className="font-medium">{ed.institution}</p>
-                <p className="text-neutral-500 text-[12px] whitespace-nowrap ml-2">
-                  {ed.startDate} — {ed.endDate}
-                </p>
-              </div>
-              <p>{ed.degree}</p>
-              {ed.details && (
-                <p className="text-neutral-500 text-[12px]">{ed.details}</p>
-              )}
-            </div>
-          ))}
-        </Section>
-      )}
-
-      {cv.projects.length > 0 && (
-        <Section title="Proyectos personales">
-          {cv.projects.map((p) => (
-            <div key={p.id} className="mb-2 last:mb-0">
-              <div className="flex justify-between items-baseline">
-                <p className="font-medium italic">{p.name}</p>
-                {p.date && (
-                  <p className="text-neutral-500 text-[12px]">{p.date}</p>
+      {experience.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-3 border-b border-neutral-100 pb-1">
+            Experiencia
+          </h2>
+          <div className="space-y-4">
+            {experience.map((exp) => (
+              <div key={exp.id}>
+                <div className="flex justify-between items-baseline">
+                  <span className="font-semibold text-neutral-800">
+                    {exp.role} {exp.company && `— ${exp.company}`}
+                  </span>
+                  <span className="text-xs text-neutral-400">
+                    {exp.startDate}{" "}
+                    {exp.startDate && (exp.endDate || exp.current) && "–"}{" "}
+                    {exp.current ? "Presente" : exp.endDate}
+                  </span>
+                </div>
+                {exp.bullets && exp.bullets.length > 0 && (
+                  <ul className="list-disc list-inside text-neutral-600 text-xs mt-1 space-y-0.5">
+                    {exp.bullets.map((bullet, idx) => (
+                      <li key={idx}>{bullet}</li>
+                    ))}
+                  </ul>
                 )}
               </div>
-              {p.description && <p>{p.description}</p>}
+            ))}
+          </div>
+        </section>
+      )}
+
+      {education.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-3 border-b border-neutral-100 pb-1">
+            Educación
+          </h2>
+          <div className="space-y-3">
+            {education.map((ed) => (
+              <div key={ed.id} className="flex justify-between items-baseline">
+                <div>
+                  <div className="font-semibold text-neutral-800">
+                    {ed.institution}
+                  </div>
+                  <div className="text-xs text-neutral-600">{ed.degree}</div>
+                  {ed.details && (
+                    <div className="text-xs text-neutral-500 mt-0.5">
+                      {ed.details}
+                    </div>
+                  )}
+                </div>
+                <span className="text-xs text-neutral-400">
+                  {ed.startDate} {ed.startDate && ed.endDate && "–"}{" "}
+                  {ed.endDate}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {projects.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-3 border-b border-neutral-100 pb-1">
+            Proyectos Destacados
+          </h2>
+          <div className="space-y-3">
+            {projects.map((proj) => (
+              <div key={proj.id}>
+                <div className="flex justify-between items-baseline">
+                  <span className="font-semibold text-neutral-800">
+                    {proj.name}
+                  </span>
+                  {proj.date && (
+                    <span className="text-xs text-neutral-400">
+                      {proj.date}
+                    </span>
+                  )}
+                </div>
+                {proj.description && (
+                  <p className="text-xs text-neutral-600 mt-0.5">
+                    {proj.description}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(skills.length > 0 || softSkills.length > 0) && (
+        <section className="mb-6">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2 border-b border-neutral-100 pb-1">
+            Habilidades
+          </h2>
+          {skills.length > 0 && (
+            <div className="mb-2">
+              <span className="text-xs font-medium text-neutral-700">
+                Técnicas:{" "}
+              </span>
+              <span className="text-xs text-neutral-600">
+                {skills.join(", ")}
+              </span>
             </div>
-          ))}
-        </Section>
+          )}
+          {softSkills.length > 0 && (
+            <div>
+              <span className="text-xs font-medium text-neutral-700">
+                Blandas:{" "}
+              </span>
+              <span className="text-xs text-neutral-600">
+                {softSkills.join(", ")}
+              </span>
+            </div>
+          )}
+        </section>
       )}
 
-      {cv.skills.length > 0 && (
-        <Section title="Habilidades técnicas">
-          <p>{cv.skills.join(", ")}</p>
-        </Section>
-      )}
-
-      {cv.softSkills.length > 0 && (
-        <Section title="Habilidades blandas">
-          <p>{cv.softSkills.join(", ")}</p>
-        </Section>
-      )}
-
-      {cv.languages.length > 0 && (
-        <Section title="Idiomas">
-          <p>
-            {cv.languages
-              .map((l) => `${l.language}${l.level ? `: ${l.level}` : ""}`)
-              .join(" · ")}
-          </p>
-        </Section>
+      {languages.length > 0 && (
+        <section>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2 border-b border-neutral-100 pb-1">
+            Idiomas
+          </h2>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
+            {languages.map((lang) => (
+              <span key={lang.id}>
+                <strong className="text-neutral-700">{lang.language}:</strong>{" "}
+                {lang.level}
+              </span>
+            ))}
+          </div>
+        </section>
       )}
     </div>
-  );
-}
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="mb-4 last:mb-0">
-      <h2 className="text-[13px] font-semibold uppercase tracking-wide border-b border-neutral-200 pb-1 mb-2">
-        {title}
-      </h2>
-      {children}
-    </section>
   );
 }

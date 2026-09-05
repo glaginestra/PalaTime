@@ -22,17 +22,44 @@ export default function CvForm({
   const [skillInput, setSkillInput] = useState("");
   const [softSkillInput, setSoftSkillInput] = useState("");
 
-  const canFinish = cv.personalInfo.fullName.trim().length > 0;
+  const personalInfo = cv?.personalInfo || {
+    fullName: "",
+    headline: "",
+    location: "",
+    phone: "",
+    email: "",
+    website: "",
+    linkedin: "",
+    github: "",
+  };
+
+  const experience = cv?.experience || [];
+  const education = cv?.education || [];
+  const projects = cv?.projects || [];
+  const skills = cv?.skills || [];
+  const softSkills = cv?.softSkills || [];
+  const languages = cv?.languages || [];
+
+  const canFinish = (personalInfo.fullName || "").trim().length > 0;
 
   function update<K extends keyof Cv>(key: K, value: Cv[K]) {
-    onChange({ ...cv, [key]: value });
+    onChange({
+      ...cv,
+      [key]: value,
+    });
   }
 
   function updatePersonal<K extends keyof Cv["personalInfo"]>(
     key: K,
     value: Cv["personalInfo"][K]
   ) {
-    onChange({ ...cv, personalInfo: { ...cv.personalInfo, [key]: value } });
+    onChange({
+      ...cv,
+      personalInfo: {
+        ...personalInfo,
+        [key]: value,
+      },
+    });
   }
 
   function addExperience() {
@@ -46,20 +73,20 @@ export default function CvForm({
       current: false,
       bullets: [],
     };
-    update("experience", [...cv.experience, item]);
+    update("experience", [...experience, item]);
   }
 
   function updateExperience(id: string, patch: Partial<ExperienceItem>) {
     update(
       "experience",
-      cv.experience.map((e) => (e.id === id ? { ...e, ...patch } : e))
+      experience.map((e) => (e.id === id ? { ...e, ...patch } : e))
     );
   }
 
   function removeExperience(id: string) {
     update(
       "experience",
-      cv.experience.filter((e) => e.id !== id)
+      experience.filter((e) => e.id !== id)
     );
   }
 
@@ -72,20 +99,20 @@ export default function CvForm({
       endDate: "",
       details: "",
     };
-    update("education", [...cv.education, item]);
+    update("education", [...education, item]);
   }
 
   function updateEducation(id: string, patch: Partial<EducationItem>) {
     update(
       "education",
-      cv.education.map((e) => (e.id === id ? { ...e, ...patch } : e))
+      education.map((e) => (e.id === id ? { ...e, ...patch } : e))
     );
   }
 
   function removeEducation(id: string) {
     update(
       "education",
-      cv.education.filter((e) => e.id !== id)
+      education.filter((e) => e.id !== id)
     );
   }
 
@@ -96,53 +123,53 @@ export default function CvForm({
       date: "",
       description: "",
     };
-    update("projects", [...cv.projects, item]);
+    update("projects", [...projects, item]);
   }
 
   function updateProject(id: string, patch: Partial<ProjectItem>) {
     update(
       "projects",
-      cv.projects.map((p) => (p.id === id ? { ...p, ...patch } : p))
+      projects.map((p) => (p.id === id ? { ...p, ...patch } : p))
     );
   }
 
   function removeProject(id: string) {
     update(
       "projects",
-      cv.projects.filter((p) => p.id !== id)
+      projects.filter((p) => p.id !== id)
     );
   }
 
   function addLanguage() {
     const item: LanguageItem = { id: newExperienceId(), language: "", level: "" };
-    update("languages", [...cv.languages, item]);
+    update("languages", [...languages, item]);
   }
 
   function updateLanguage(id: string, patch: Partial<LanguageItem>) {
     update(
       "languages",
-      cv.languages.map((l) => (l.id === id ? { ...l, ...patch } : l))
+      languages.map((l) => (l.id === id ? { ...l, ...patch } : l))
     );
   }
 
   function removeLanguage(id: string) {
     update(
       "languages",
-      cv.languages.filter((l) => l.id !== id)
+      languages.filter((l) => l.id !== id)
     );
   }
 
   function addSkill() {
     const v = skillInput.trim();
     if (!v) return;
-    update("skills", [...cv.skills, v]);
+    update("skills", [...skills, v]);
     setSkillInput("");
   }
 
   function addSoftSkill() {
     const v = softSkillInput.trim();
     if (!v) return;
-    update("softSkills", [...cv.softSkills, v]);
+    update("softSkills", [...softSkills, v]);
     setSoftSkillInput("");
   }
 
@@ -153,7 +180,7 @@ export default function CvForm({
           <Field label="Nombre completo" required>
             <input
               className="input"
-              value={cv.personalInfo.fullName}
+              value={personalInfo.fullName || ""}
               onChange={(e) => updatePersonal("fullName", e.target.value)}
               placeholder="Gastón Nicolás Laginestra"
             />
@@ -161,7 +188,7 @@ export default function CvForm({
           <Field label="Título / rol">
             <input
               className="input"
-              value={cv.personalInfo.headline}
+              value={personalInfo.headline || ""}
               onChange={(e) => updatePersonal("headline", e.target.value)}
               placeholder="Estudiante de ingeniería informática"
             />
@@ -169,7 +196,7 @@ export default function CvForm({
           <Field label="Ubicación">
             <input
               className="input"
-              value={cv.personalInfo.location}
+              value={personalInfo.location || ""}
               onChange={(e) => updatePersonal("location", e.target.value)}
               placeholder="CABA, Argentina"
             />
@@ -177,7 +204,7 @@ export default function CvForm({
           <Field label="Email">
             <input
               className="input"
-              value={cv.personalInfo.email}
+              value={personalInfo.email || ""}
               onChange={(e) => updatePersonal("email", e.target.value)}
               placeholder="nombre@email.com"
             />
@@ -185,7 +212,7 @@ export default function CvForm({
           <Field label="Teléfono">
             <input
               className="input"
-              value={cv.personalInfo.phone}
+              value={personalInfo.phone || ""}
               onChange={(e) => updatePersonal("phone", e.target.value)}
               placeholder="+54 11 2322-3519"
             />
@@ -193,7 +220,7 @@ export default function CvForm({
           <Field label="Sitio web / portfolio">
             <input
               className="input"
-              value={cv.personalInfo.website}
+              value={personalInfo.website || ""}
               onChange={(e) => updatePersonal("website", e.target.value)}
               placeholder="portfolio.vercel.app"
             />
@@ -201,7 +228,7 @@ export default function CvForm({
           <Field label="LinkedIn">
             <input
               className="input"
-              value={cv.personalInfo.linkedin}
+              value={personalInfo.linkedin || ""}
               onChange={(e) => updatePersonal("linkedin", e.target.value)}
               placeholder="linkedin.com/in/usuario"
             />
@@ -209,7 +236,7 @@ export default function CvForm({
           <Field label="GitHub">
             <input
               className="input"
-              value={cv.personalInfo.github}
+              value={personalInfo.github || ""}
               onChange={(e) => updatePersonal("github", e.target.value)}
               placeholder="github.com/usuario"
             />
@@ -220,32 +247,32 @@ export default function CvForm({
       <FormSection title="Resumen">
         <textarea
           className="input min-h-[90px]"
-          value={cv.summary}
+          value={cv?.summary || ""}
           onChange={(e) => update("summary", e.target.value)}
           placeholder="2-3 líneas contando quién sos y qué buscás."
         />
       </FormSection>
 
       <FormSection title="Experiencia">
-        {cv.experience.map((exp) => (
+        {experience.map((exp) => (
           <div key={exp.id} className="border border-neutral-200 rounded-lg p-4 mb-3 space-y-2">
             <div className="grid grid-cols-2 gap-3">
               <input
                 className="input"
                 placeholder="Puesto"
-                value={exp.role}
+                value={exp.role || ""}
                 onChange={(e) => updateExperience(exp.id, { role: e.target.value })}
               />
               <input
                 className="input"
                 placeholder="Empresa"
-                value={exp.company}
+                value={exp.company || ""}
                 onChange={(e) => updateExperience(exp.id, { company: e.target.value })}
               />
               <input
                 className="input"
                 placeholder="Desde (ej: Mar 2023)"
-                value={exp.startDate}
+                value={exp.startDate || ""}
                 onChange={(e) => updateExperience(exp.id, { startDate: e.target.value })}
               />
               <div className="flex gap-2 items-center">
@@ -253,13 +280,13 @@ export default function CvForm({
                   className="input flex-1"
                   placeholder="Hasta"
                   disabled={exp.current}
-                  value={exp.endDate}
+                  value={exp.endDate || ""}
                   onChange={(e) => updateExperience(exp.id, { endDate: e.target.value })}
                 />
                 <label className="text-xs text-neutral-600 flex items-center gap-1 whitespace-nowrap">
                   <input
                     type="checkbox"
-                    checked={exp.current}
+                    checked={exp.current || false}
                     onChange={(e) => updateExperience(exp.id, { current: e.target.checked })}
                   />
                   Actual
@@ -269,10 +296,10 @@ export default function CvForm({
             <textarea
               className="input min-h-[70px]"
               placeholder="Logros, uno por línea"
-              value={exp.bullets.join("\n")}
+              value={(exp.bullets || []).join("\n")}
               onChange={(e) =>
                 updateExperience(exp.id, {
-                  bullets: e.target.value.split("\n").filter((b) => b.trim().length > 0),
+                  bullets: e.target.value.split("\n").filter((b: string) => b.trim().length > 0),
                 })
               }
             />
@@ -287,31 +314,31 @@ export default function CvForm({
       </FormSection>
 
       <FormSection title="Educación">
-        {cv.education.map((ed) => (
+        {education.map((ed) => (
           <div key={ed.id} className="border border-neutral-200 rounded-lg p-4 mb-3 space-y-2">
             <div className="grid grid-cols-2 gap-3">
               <input
                 className="input"
                 placeholder="Institución"
-                value={ed.institution}
+                value={ed.institution || ""}
                 onChange={(e) => updateEducation(ed.id, { institution: e.target.value })}
               />
               <input
                 className="input"
                 placeholder="Título / carrera"
-                value={ed.degree}
+                value={ed.degree || ""}
                 onChange={(e) => updateEducation(ed.id, { degree: e.target.value })}
               />
               <input
                 className="input"
                 placeholder="Desde"
-                value={ed.startDate}
+                value={ed.startDate || ""}
                 onChange={(e) => updateEducation(ed.id, { startDate: e.target.value })}
               />
               <input
                 className="input"
                 placeholder="Hasta"
-                value={ed.endDate}
+                value={ed.endDate || ""}
                 onChange={(e) => updateEducation(ed.id, { endDate: e.target.value })}
               />
             </div>
@@ -326,18 +353,18 @@ export default function CvForm({
       </FormSection>
 
       <FormSection title="Proyectos personales">
-        {cv.projects.map((p) => (
+        {projects.map((p) => (
           <div key={p.id} className="border border-neutral-200 rounded-lg p-4 mb-3 space-y-2">
             <input
               className="input"
               placeholder="Nombre del proyecto"
-              value={p.name}
+              value={p.name || ""}
               onChange={(e) => updateProject(p.id, { name: e.target.value })}
             />
             <textarea
               className="input min-h-[60px]"
               placeholder="Descripción"
-              value={p.description}
+              value={p.description || ""}
               onChange={(e) => updateProject(p.id, { description: e.target.value })}
             />
             <button className="text-xs text-red-600" onClick={() => removeProject(p.id)}>
@@ -352,8 +379,8 @@ export default function CvForm({
 
       <FormSection title="Habilidades técnicas">
         <div className="flex flex-wrap gap-1.5 mb-2">
-          {cv.skills.map((s, i) => (
-            <Chip key={i} onRemove={() => update("skills", cv.skills.filter((_, idx) => idx !== i))}>
+          {skills.map((s, i) => (
+            <Chip key={i} onRemove={() => update("skills", skills.filter((_, idx) => idx !== i))}>
               {s}
             </Chip>
           ))}
@@ -374,10 +401,10 @@ export default function CvForm({
 
       <FormSection title="Habilidades blandas">
         <div className="flex flex-wrap gap-1.5 mb-2">
-          {cv.softSkills.map((s, i) => (
+          {softSkills.map((s, i) => (
             <Chip
               key={i}
-              onRemove={() => update("softSkills", cv.softSkills.filter((_, idx) => idx !== i))}
+              onRemove={() => update("softSkills", softSkills.filter((_, idx) => idx !== i))}
             >
               {s}
             </Chip>
@@ -398,18 +425,18 @@ export default function CvForm({
       </FormSection>
 
       <FormSection title="Idiomas">
-        {cv.languages.map((l) => (
+        {languages.map((l) => (
           <div key={l.id} className="flex gap-2 mb-2">
             <input
               className="input"
               placeholder="Idioma"
-              value={l.language}
+              value={l.language || ""}
               onChange={(e) => updateLanguage(l.id, { language: e.target.value })}
             />
             <input
               className="input"
               placeholder="Nivel"
-              value={l.level}
+              value={l.level || ""}
               onChange={(e) => updateLanguage(l.id, { level: e.target.value })}
             />
             <button className="text-xs text-red-600" onClick={() => removeLanguage(l.id)}>
