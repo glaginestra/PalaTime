@@ -10,6 +10,26 @@ import { Download, Plus, Upload, Moon, Sun, FileUser, HelpCircle, LogOut, X, Che
 import { hasBaseCv } from "@/lib/cv-storage";
 import { authClient } from "@/lib/auth-client";
 
+const FONTS_LIST = [
+  "DejaVu Sans Mono",
+  "EB Garamond",
+  "Fontin",
+  "Gentium Book Plus",
+  "Lato",
+  "Libertinus Serif",
+  "Mukta",
+  "New Computer Modern",
+  "Noto Sans",
+  "Open Sans",
+  "Open Sauce Sans",
+  "Poppins",
+  "Raleway",
+  "Roboto",
+  "Source Sans 3",
+  "Ubuntu",
+  "XCharter"
+];
+
 const TEMPLATES = [
   "classic",
   "engineeringclassic",
@@ -124,6 +144,8 @@ const DEFAULT_SPANISH_YAML = `cv:
       - reversed_number: El futuro del diseño en la estrategia de marca — Congreso Latam (2024)
 design:
   theme: engineeringclassic
+  typography:
+    font_family: Source Sans 3
 locale:
   language: spanish
 settings:
@@ -310,6 +332,8 @@ function CrearCvContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
+  const [selectedFont, setSelectedFont] = useState<string>("Source Sans 3");
+  const [modalSelectedFont, setModalSelectedFont] = useState<string>("Source Sans 3"); 
 
   const [yamlContent, setYamlContent] = useState<string>(DEFAULT_SPANISH_YAML);
   const [selectedTheme, setSelectedTheme] = useState<string>("engineeringclassic");
@@ -359,12 +383,13 @@ function CrearCvContent() {
   // Estados para el Tutorial Spotlight Interactivo
   const [showTutorial, setShowTutorial] = useState<boolean>(false);
   const [tutorialStep, setTutorialStep] = useState<number>(1);
-  const totalTutorialSteps = 7;
+  const totalTutorialSteps = 8;
 
   const createBtnRef = useRef<HTMLButtonElement>(null);
   const importContainerRef = useRef<HTMLDivElement>(null);
   const adaptBtnRef = useRef<HTMLButtonElement>(null);
   const themeSelectRef = useRef<HTMLDivElement>(null);
+  const fontSelectRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const formToggleRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -569,6 +594,9 @@ function CrearCvContent() {
     if (parsedYamlObj?.locale?.language) {
       setCurrentLang(parsedYamlObj.locale.language);
     }
+    if (parsedYamlObj?.design?.typography?.font_family && FONTS_LIST.includes(parsedYamlObj.design.typography.font_family)) {
+    setSelectedFont(parsedYamlObj.design.typography.font_family);
+    }
   }, [yamlContent]);
 
   const handleConfirmCreateCv = async () => {
@@ -577,6 +605,7 @@ function CrearCvContent() {
       if (parsed) {
         parsed.design = parsed.design || {};
         parsed.design.theme = modalSelectedTheme;
+        parsed.design.typography.font_family = modalSelectedFont;
       }
       const finalYaml = yaml.dump(parsed, { indent: 2, lineWidth: -1 });
       const title = newCvTitleInput || "Nuevo CV";
@@ -603,6 +632,7 @@ function CrearCvContent() {
             setYamlContent(data.cv.yamlContent);
             setLastSavedContent(data.cv.yamlContent);
             setSelectedTheme(modalSelectedTheme); // Sincroniza el select con el modal
+            setSelectedFont(modalSelectedFont);
           }
           setShowCreateModal(false);
         } else {
@@ -620,6 +650,7 @@ function CrearCvContent() {
         setYamlContent(newLocalCv.yamlContent);
         setLastSavedContent(newLocalCv.yamlContent);
         setSelectedTheme(modalSelectedTheme); // Sincroniza el select con el modal
+        setSelectedFont(modalSelectedFont);
         localStorage.setItem("palatime_local_cvs", JSON.stringify(updated));
         setShowCreateModal(false);
       }
@@ -733,10 +764,12 @@ function CrearCvContent() {
       } else if (tutorialStep === 4) {
         if (themeSelectRef.current) targets.push(themeSelectRef.current);
       } else if (tutorialStep === 5) {
-        if (formToggleRef.current) targets.push(formToggleRef.current);
+        if (fontSelectRef.current) targets.push(fontSelectRef.current);
       } else if (tutorialStep === 6) {
-        if (previewRef.current) targets.push(previewRef.current);
+        if (formToggleRef.current) targets.push(formToggleRef.current);
       } else if (tutorialStep === 7) {
+        if (previewRef.current) targets.push(previewRef.current);
+      } else if (tutorialStep === 8) {
         if (downloadRef.current) targets.push(downloadRef.current);
       }
 
@@ -921,6 +954,19 @@ function CrearCvContent() {
       if (parsed) {
         parsed.design = parsed.design || {};
         parsed.design.theme = newTheme;
+        setYamlContent(yaml.dump(parsed, { indent: 2, lineWidth: -1 }));
+      }
+    } catch (e) {}
+  };
+
+  const handleFontChange = (newFont: string) => {
+    setSelectedFont(newFont);
+    try {
+      const parsed: any = yaml.load(yamlContent);
+      if (parsed) {
+        parsed.design = parsed.design || {};
+        parsed.design.typography = parsed.design.typography || {};
+        parsed.design.typography.font_family = newFont;
         setYamlContent(yaml.dump(parsed, { indent: 2, lineWidth: -1 }));
       }
     } catch (e) {}
@@ -1130,6 +1176,7 @@ function CrearCvContent() {
                 executeWithUnsavedCheck(() => {
                   setNewCvTitleInput("Nuevo CV");
                   setModalSelectedTheme("engineeringclassic");
+                  setModalSelectedFont("Source Sans 3");
                   setShowCreateModal(true);
                 });
               }} 
@@ -1178,7 +1225,7 @@ function CrearCvContent() {
               {!isAuthenticated && <span className=" text-[10px] text-amber-400 font-medium flex justify-start items-center"><CloudOff size={15} className=" mx-1"/>Guardado localmente</span>}
             </div>
             
-            <div className="space-y-1 overflow-visible pr-1">
+            <div className="space-y-1 max-h-[210px] overflow-y-auto pr-1">
               {userCvs.map((cv) => (
                 <div 
                   key={cv.id} 
@@ -1333,9 +1380,24 @@ function CrearCvContent() {
               </select>
             </div>
 
+            <div ref={fontSelectRef} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs transition-all ${showTutorial && tutorialStep === 5 ? "relative z-50 ring-4 ring-blue-500 bg-[#0F172B] shadow-2xl" : ""} ${isDarkMode ? "bg-[#1D293D] border-[#F8FAFC]/20 text-[#F8FAFC]" : "bg-neutral-100 border-neutral-300 text-slate-800"}`}>
+              <span className="opacity-70 font-medium">Fuente:</span>
+              <select
+                value={selectedFont}
+                onChange={(e) => handleFontChange(e.target.value)}
+                className="bg-transparent font-semibold outline-none cursor-pointer max-w-[130px] truncate"
+              >
+                {FONTS_LIST.map((font) => (
+                  <option key={font} value={font} className={isDarkMode ? "bg-[#0F172B] text-white" : "bg-white text-black"}>
+                    {font}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div 
               ref={formToggleRef}
-              className={`flex p-1 rounded-lg border text-xs transition-all ${showTutorial && tutorialStep === 5 ? "relative z-50 ring-4 ring-blue-500 bg-[#0F172B] shadow-2xl" : ""} ${isDarkMode ? "bg-[#0F172B] border-[#F8FAFC]/20" : "bg-neutral-100 border-neutral-300"}`}
+              className={`flex p-1 rounded-lg border text-xs transition-all ${showTutorial && tutorialStep === 6 ? "relative z-50 ring-4 ring-blue-500 bg-[#0F172B] shadow-2xl" : ""} ${isDarkMode ? "bg-[#0F172B] border-[#F8FAFC]/20" : "bg-neutral-100 border-neutral-300"}`}
             >
               <button
                 onClick={() => setViewMode("yaml")}
@@ -2025,7 +2087,7 @@ function CrearCvContent() {
             {/* Columna Derecha: Vista Previa PDF */}
             <div 
               ref={previewRef}
-              className={`flex flex-col h-full overflow-hidden transition-all ${showTutorial && tutorialStep === 6 ? "relative z-50 ring-4 ring-blue-500 shadow-2xl" : ""} ${isDarkMode ? "bg-[#090D16]" : "bg-neutral-100"}`}
+              className={`flex flex-col h-full overflow-hidden transition-all ${showTutorial && tutorialStep === 7 ? "relative z-50 ring-4 ring-blue-500 shadow-2xl" : ""} ${isDarkMode ? "bg-[#090D16]" : "bg-neutral-100"}`}
             >
               <div className={`px-4 py-2 text-xs border-b font-mono flex justify-between items-center shrink-0 ${isDarkMode ? "bg-[#0F172B] border-[#F8FAFC]/10 text-white/80" : "bg-neutral-100 border-neutral-200 text-neutral-700"}`}>
                 <span>PDF en Vivo</span>
@@ -2040,7 +2102,7 @@ function CrearCvContent() {
                       }
                     }}
                     download={isAuthenticated ? "Mi_CV.pdf" : undefined}
-                    className={`hover:underline -pt-10 font-semibold flex items-center gap-1.5 text-blue-400 transition-all cursor-pointer ${showTutorial && tutorialStep === 7 ? "relative z-50 ring-4 ring-emerald-400 p-1 rounded bg-blue-950 shadow-2xl" : ""}`}
+                    className={`hover:underline -pt-10 font-semibold flex items-center gap-1.5 text-blue-400 transition-all cursor-pointer ${showTutorial && tutorialStep === 8 ? "relative z-50 ring-4 ring-emerald-400 p-1 rounded bg-blue-950 shadow-2xl" : ""}`}
                   >
                     <Download className="w-3.5 h-3.5" />
                     Descargar PDF
@@ -2081,7 +2143,7 @@ function CrearCvContent() {
         >
           <div 
             onClick={(e) => e.stopPropagation()} 
-            className={`w-full max-w-[41.5rem] h-[70vh] rounded-2xl shadow-2xl border flex flex-col overflow-hidden ${isDarkMode ? "bg-[#0F172B] border-white/20 text-white" : "bg-white border-neutral-200 text-slate-900"}`}
+            className={`w-full max-w-[50rem] h-[82vh] rounded-2xl shadow-2xl border flex flex-col overflow-hidden ${isDarkMode ? "bg-[#0F172B] border-white/20 text-white" : "bg-white border-neutral-200 text-slate-900"}`}
           >
             
             <div className="px-6 py-4 flex items-center justify-between shrink-0">
@@ -2122,6 +2184,20 @@ function CrearCvContent() {
                         </button>
                       ))}
                     </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold mb-1 opacity-80">Tipografía</label>
+                    <select
+                      value={modalSelectedFont}
+                      onChange={(e) => setModalSelectedFont(e.target.value)}
+                      className={`w-full border rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer ${isDarkMode ? "bg-[#1D293D] border-white/20 text-white" : "bg-neutral-50 border-neutral-300"}`}
+                    >
+                      {FONTS_LIST.map((font) => (
+                        <option key={font} value={font} className={isDarkMode ? "bg-[#0F172B] text-white" : "bg-white text-black"}>
+                          {font}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -2342,6 +2418,15 @@ function CrearCvContent() {
 
               {tutorialStep === 5 && (
                 <div className="space-y-2">
+                  <h3 className="text-base font-bold">Selección de Tipografía</h3>
+                  <p className="text-xs opacity-80 leading-relaxed">
+                    Personaliza el estilo tipográfico de tu currículum eligiendo entre una amplia variedad de fuentes profesionales adaptadas para documentos formales.
+                  </p>
+                </div>
+              )}
+
+              {tutorialStep === 6 && (
+                <div className="space-y-2">
                   <h3 className="text-base font-bold">Formulario Visual Intuitivo</h3>
                   <p className="text-xs opacity-80 leading-relaxed">
                     Si preferís no usar código, cambia al modo Formulario Jerárquico para rellenar tus datos personales, experiencia y proyectos mediante campos guiados.
@@ -2349,7 +2434,7 @@ function CrearCvContent() {
                 </div>
               )}
 
-              {tutorialStep === 6 && (
+              {tutorialStep === 7 && (
                 <div className="space-y-2">
                   <h3 className="text-base font-bold">Vista Previa en Vivo</h3>
                   <p className="text-xs opacity-80 leading-relaxed">
@@ -2358,7 +2443,7 @@ function CrearCvContent() {
                 </div>
               )}
 
-              {tutorialStep === 7 && (
+              {tutorialStep === 8 && (
                 <div className="space-y-2">
                   <h3 className="text-base font-bold">Descarga y Exportación</h3>
                   <p className="text-xs opacity-80 leading-relaxed">
