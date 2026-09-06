@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Llegaste al límite de adaptaciones gratuitas de hoy. Probá de nuevo mañana.",
+          "Llegaste al límite de adaptaciones gratuitas. Probá de nuevo mañana.",
       },
       { status: 429 }
     );

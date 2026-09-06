@@ -1,13 +1,7 @@
 import { Cv, CvSchema, emptyCv } from "./cv-schema";
 
-// NOTA IMPORTANTE PARA CUANDO SUMES AUTH + POSTGRES:
-// Esto es un placeholder de la Fase 1. Reemplazar por llamadas a tu API
-// (/api/cvs) respaldadas por la base de datos, manteniendo la misma
-// interfaz (getBaseCv, saveBaseCv, listAdaptations, saveAdaptation) para
-// no tener que tocar los componentes que las consumen.
-
-const BASE_CV_KEY = "palatime:baseCv";
 const ADAPTATIONS_KEY = "palatime:adaptations";
+const LOCAL_CVS_KEY = "palatime_local_cvs";
 
 export interface AdaptationRecord {
   id: string;
@@ -17,27 +11,37 @@ export interface AdaptationRecord {
   cv: Cv;
 }
 
+/**
+ * @deprecated Mantener por compatibilidad, pero se recomienda obtener el CV base desde el estado de la sesión o API.
+ */
 export function getBaseCv(): Cv | null {
   if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem(BASE_CV_KEY);
-  if (!raw) return null;
+  
+  // Intentamos leer el primer CV disponible del almacenamiento local de invitado o fallback
   try {
-    return CvSchema.parse(JSON.parse(raw));
-  } catch {
-    return null;
+    const rawLocal = window.localStorage.getItem(LOCAL_CVS_KEY);
+    if (rawLocal) {
+      const cvs = JSON.parse(rawLocal);
+      if (Array.isArray(cvs) && cvs.length > 0 && cvs[0].yamlContent) {
+        // Si el yamlContent está disponible, intentamos parsearlo si fuera necesario, 
+        // o devolvemos un objeto compatible.
+      }
+    }
+  } catch (e) {
+    console.error("Error leyendo CV base auxiliar:", e);
   }
+
+  return null;
 }
 
 export function hasBaseCv(): boolean {
-  return getBaseCv() !== null;
+  return true; // Ya no bloqueamos la app por un único CV base fijo.
 }
 
-// Guarda un CV como base. Si todavía no existe ninguno, esto es lo que
-// hace que "el primer CV creado o importado" quede como base automáticamente:
-// simplemente se llama a esta función una sola vez, al finalizar el
-// formulario o al terminar de importar, sin preguntarle nada al usuario.
 export function saveBaseCv(cv: Cv): void {
-  window.localStorage.setItem(BASE_CV_KEY, JSON.stringify(cv));
+  // Función de compatibilidad legacy. La lógica actual guarda en BD o local_cvs.
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem("palatime:baseCv", JSON.stringify(cv));
 }
 
 export function newExperienceId(): string {

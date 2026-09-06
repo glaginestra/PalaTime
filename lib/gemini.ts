@@ -604,3 +604,41 @@ export async function structureRawCvText(rawText: string): Promise<string> {
   console.log("✅ [YAML GENERADO CON ÉXITO]:\n", finalYaml);
   return finalYaml;
 }
+
+export async function adaptCvToJobPosting(baseCv: any, jobPostingMd: string): Promise<any> {
+  if (geminiKeys.length === 0) {
+    throw new Error("No hay API Keys de Gemini configuradas para la adaptación.");
+  }
+
+  const genAI = new GoogleGenerativeAI(geminiKeys[0]);
+  const model = genAI.getGenerativeModel({
+    model: "gemini-3.5-flash-lite",
+    generationConfig: {
+      responseMimeType: "application/json",
+      temperature: 0.1,
+      maxOutputTokens: 8192,
+    },
+  });
+
+  const prompt = `Actúa como un reclutador técnico experto y un ATS (Applicant Tracking System). Tu objetivo es adaptar el CV base provisto para alinear los logros reales del candidato con los requisitos de la oferta laboral.
+
+REGLAS ESTRICTAS:
+1. **PROHIBIDO INVENTAR**: No inventes experiencias, empresas, títulos ni tecnologías que no existan en el CV base. Todo debe basarse estrictamente en la información original.
+2. **OPTIMIZACIÓN DE KEYWORDS**: Inyecta y resalta orgánicamente las palabras clave de la oferta dentro de las habilidades y los bullet points, siempre que el candidato demuestre poseerlas.
+3. **PRESERVACIÓN DINÁMICA DE ESQUEMA**: Debes devolver un objeto JSON que mantenga **exactamente las mismas claves, jerarquía y estructura de datos** que el objeto JSON del CV base provisto a continuación. No elimines secciones principales ni alteres los nombres de las propiedades raíz.
+
+CV BASE DEL CANDIDATO (TEMPLATE DE REFERENCIA):
+"""
+${JSON.stringify(baseCv, null, 2)}
+"""
+
+OFERTA LABORAL OBJETIVO:
+"""
+${jobPostingMd}
+"""`;
+
+  const result = await model.generateContent(prompt);
+  const textResponse = result.response.text() || "{}";
+  
+  return JSON.parse(textResponse);
+}

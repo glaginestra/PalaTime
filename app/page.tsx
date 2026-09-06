@@ -6,7 +6,7 @@ import Editor from "@monaco-editor/react";
 import * as yaml from "js-yaml";
 import { Cv } from "@/lib/cv-schema";
 import { parsePhoneNumberFromString, CountryCode } from "libphonenumber-js";
-import { Download, Plus, Upload, Moon, Sun, FileUser, HelpCircle, LogOut, X, ChevronLeft, ChevronRight, User, MoreVertical, Edit2, Trash2, CloudOff } from 'lucide-react';
+import { Download, Plus, Upload, Moon, Sun, FileUser, HelpCircle, LogOut, X, ChevronLeft, ChevronRight, User, MoreVertical, Edit2, Trash2, CloudOff,Sparkles } from 'lucide-react';
 import { hasBaseCv } from "@/lib/cv-storage";
 import { authClient } from "@/lib/auth-client";
 
@@ -353,11 +353,11 @@ function CrearCvContent() {
   // Estado para el Modal de Invitado al intentar descargar
   const [showGuestDownloadModal, setShowGuestDownloadModal] = useState<boolean>(false);
 
-  // Estados para el Menú de Opciones (3 puntitos) en el Aside y sus Modales de Renombrar / Eliminar
+  // Estados para el Menú de Opciones (3 puntitos) en el Aside y sus Modales de Renombrar / Eliminar (CVs Base)
   const [activeMenuCvId, setActiveMenuCvId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   
-  // Estados para modales independientes de renombrar y eliminar CV
+  // Estados para modales independientes de renombrar y eliminar CV Base
   const [showRenameModal, setShowRenameModal] = useState<boolean>(false);
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [targetCv, setTargetCv] = useState<any | null>(null);
@@ -365,21 +365,7 @@ function CrearCvContent() {
 
   // Referencias para manejo de clics externos
   const menuRef = useRef<HTMLDivElement>(null);
-
-  // Efecto para cerrar el menú si se hace clic fuera de él
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setActiveMenuCvId(null);
-      }
-    }
-    if (activeMenuCvId) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [activeMenuCvId]);
+  const adaptMenuRef = useRef<HTMLDivElement>(null);
 
   // Estados para el Tutorial Spotlight Interactivo
   const [showTutorial, setShowTutorial] = useState<boolean>(false);
@@ -408,6 +394,18 @@ function CrearCvContent() {
 
   const [userCvs, setUserCvs] = useState<any[]>([]);
   const [activeCvId, setActiveCvId] = useState<string | null>(null);
+  
+  // Estados para la sección de Adaptaciones (con control de tipo activo y límite de 3)
+  const [cvType, setCvType] = useState<"base" | "adapted">("base");
+  const [userAdaptations, setUserAdaptations] = useState<any[]>([]);
+  const [activeAdaptationId, setActiveAdaptationId] = useState<string | null>(null);
+  const [activeMenuAdaptId, setActiveMenuAdaptId] = useState<string | null>(null);
+  const [adaptMenuPosition, setAdaptMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [showAdaptRenameModal, setShowAdaptRenameModal] = useState<boolean>(false);
+  const [showAdaptDeleteModal, setShowAdaptDeleteModal] = useState<boolean>(false);
+  const [targetAdapt, setTargetAdapt] = useState<any | null>(null);
+  const [adaptRenameInputValue, setAdaptRenameInputValue] = useState<string>("");
+  const [showLimitModal, setShowLimitModal] = useState<boolean>(false);
 
   // Estados para auto-guardado silencioso y control de cambios sin guardar
   const [lastSavedContent, setLastSavedContent] = useState<string>(DEFAULT_SPANISH_YAML);
@@ -417,6 +415,32 @@ function CrearCvContent() {
 
   const { data: session, isPending } = authClient.useSession();
   const isAuthenticated = !!session;
+
+  if (isPending) {
+    return (
+      <div className="min-h-screen bg-[#0F172B] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+  
+  // Efecto para cerrar el menú si se hace clic fuera de él
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setActiveMenuCvId(null);
+      }
+      if (adaptMenuRef.current && !adaptMenuRef.current.contains(event.target as Node)) {
+        setActiveMenuAdaptId(null);
+      }
+    }
+    if (activeMenuCvId || activeMenuAdaptId) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [activeMenuCvId, activeMenuAdaptId]);
 
   // Detectar cambios no guardados al cerrar la pestaña o recargar (beforeunload)
   useEffect(() => {
@@ -430,26 +454,39 @@ function CrearCvContent() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [yamlContent, lastSavedContent]);
 
-  // Auto-guardado silencioso inteligente (debounce de 1 segundo tras detectar cambios en el editor)
+  // Auto-guardado silencioso inteligente (Distingue si se edita un CV Base o Adaptado)
   useEffect(() => {
-    if (yamlContent === lastSavedContent || !activeCvId) return;
+    if (yamlContent === lastSavedContent) return;
 
     const timer = setTimeout(async () => {
       setIsSaving(true);
       try {
-        if (isAuthenticated && !activeCvId.startsWith("local-cv-")) {
-          await fetch(`/api/cvs/${activeCvId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ yamlContent }),
-          });
-        }
-        
-        // Actualizar estado local y persistir
-        const updated = userCvs.map(c => c.id === activeCvId ? { ...c, yamlContent } : c);
-        setUserCvs(updated);
-        if (!isAuthenticated || activeCvId.startsWith("local-cv-")) {
-          localStorage.setItem("palatime_local_cvs", JSON.stringify(updated));
+        if (cvType === "base" && activeCvId) {
+          if (isAuthenticated && !activeCvId.startsWith("local-cv-")) {
+            await fetch(`/api/cvs/${activeCvId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ yamlContent }),
+            });
+          }
+          const updated = userCvs.map(c => c.id === activeCvId ? { ...c, yamlContent } : c);
+          setUserCvs(updated);
+          if (!isAuthenticated || activeCvId.startsWith("local-cv-")) {
+            localStorage.setItem("palatime_local_cvs", JSON.stringify(updated));
+          }
+        } else if (cvType === "adapted" && activeAdaptationId) {
+          if (isAuthenticated && !activeAdaptationId.startsWith("local-adapt-")) {
+            await fetch(`/api/adaptations/${activeAdaptationId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ yamlContent }),
+            });
+          }
+          const updated = userAdaptations.map(a => a.id === activeAdaptationId ? { ...a, yamlContent } : a);
+          setUserAdaptations(updated);
+          if (!isAuthenticated || activeAdaptationId.startsWith("local-adapt-")) {
+            localStorage.setItem("palatime_local_adaptations", JSON.stringify(updated));
+          }
         }
         setLastSavedContent(yamlContent);
       } catch (err) {
@@ -460,11 +497,11 @@ function CrearCvContent() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [yamlContent, lastSavedContent, activeCvId, isAuthenticated, userCvs]);
+  }, [yamlContent, lastSavedContent, activeCvId, activeAdaptationId, cvType, isAuthenticated, userCvs, userAdaptations]);
 
-  // Lógica unificada para migración inteligente, limpia y sin loops
+  // Lógica unificada para migración y carga inicial de CVs Base y Adaptados
   useEffect(() => {
-    const initializeAndMigrateCvs = async () => {
+    const initializeAndMigrateData = async () => {
       const seenTutorial = localStorage.getItem("palatime_tutorial_seen");
       if (!seenTutorial) {
         setShowTutorial(true);
@@ -474,109 +511,102 @@ function CrearCvContent() {
       const localCvsStr = localStorage.getItem("palatime_local_cvs");
       let localCvs = [];
       try {
-        if (localCvsStr) {
-          localCvs = JSON.parse(localCvsStr);
-        }
-      } catch (e) {
-        console.error("Error parseando CVs locales:", e);
-      }
+        if (localCvsStr) localCvs = JSON.parse(localCvsStr);
+      } catch (e) {}
+
+      const localAdaptsStr = localStorage.getItem("palatime_local_adaptations");
+      let localAdapts = [];
+      try {
+        if (localAdaptsStr) localAdapts = JSON.parse(localAdaptsStr);
+      } catch (e) {}
 
       if (isAuthenticated) {
         try {
-          const res = await fetch("/api/cvs");
-          if (res.ok) {
-            const data = await res.json();
-            let dbCvs = data.cvs || [];
+          // 1. Fetch CVs Base
+          const resCvs = await fetch("/api/cvs");
+          if (resCvs.ok) {
+            const dataCvs = await resCvs.json();
+            let dbCvs = dataCvs.cvs || [];
 
-            // 1. FILTRADO INTELIGENTE: Solo conservar y migrar CVs que el usuario editó o creó explícitamente en invitado.
-            // Descartamos los "Nuevo CV" genéricos que mantienen el contenido por defecto exacto y no se renombraron.
             const modifiedLocalCvs = Array.isArray(localCvs) ? localCvs.filter((cv: any) => {
               const isDefaultTitle = cv.title === "Nuevo CV" || cv.title === "Nuevo CV 1";
               const isDefaultContent = cv.yamlContent === DEFAULT_SPANISH_YAML;
-              // Solo se migra si fue renombrado o si su contenido fue modificado
               return !isDefaultTitle || !isDefaultContent;
             }) : [];
 
-            // 2. MIGRACIÓN DE CVs MODIFICADOS
-            if (modifiedLocalCvs.length > 0) {
-              for (const localCv of modifiedLocalCvs) {
-                try {
-                  const createRes = await fetch("/api/cvs", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      title: localCv.title || "CV Migrado",
-                      yamlContent: localCv.yamlContent || DEFAULT_SPANISH_YAML,
-                    }),
-                  });
-
-                  if (createRes.ok) {
-                    const createdData = await createRes.json();
-                    if (createdData.cv) {
-                      dbCvs.push(createdData.cv);
-                    }
-                  }
-                } catch (err) {
-                  console.error(`Error al sincronizar el CV local ${localCv.id}:`, err);
+            for (const localCv of modifiedLocalCvs) {
+              try {
+                const createRes = await fetch("/api/cvs", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ title: localCv.title || "CV Migrado", yamlContent: localCv.yamlContent }),
+                });
+                if (createRes.ok) {
+                  const createdData = await createRes.json();
+                  if (createdData.cv) dbCvs.push(createdData.cv);
                 }
-              }
+              } catch (e) {}
             }
-
-            // Limpiamos el storage local de invitados para evitar bucles o migraciones repetidas
             localStorage.removeItem("palatime_local_cvs");
 
-            // 3. SI LA BD ESTÁ COMPLETAMENTE VACÍA (y el usuario no tenía nada modificado), creamos uno por defecto limpio
             if (dbCvs.length === 0) {
               const createRes = await fetch("/api/cvs", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  title: "Nuevo CV",
-                  yamlContent: DEFAULT_SPANISH_YAML,
-                }),
+                body: JSON.stringify({ title: "Nuevo CV", yamlContent: DEFAULT_SPANISH_YAML }),
               });
               if (createRes.ok) {
                 const newData = await createRes.json();
-                if (newData.cv) {
-                  dbCvs = [newData.cv];
-                }
+                if (newData.cv) dbCvs = [newData.cv];
               }
             }
 
             setUserCvs(dbCvs);
             if (dbCvs.length > 0) {
+              setCvType("base");
               setActiveCvId(dbCvs[0].id);
               setYamlContent(dbCvs[0].yamlContent);
               setLastSavedContent(dbCvs[0].yamlContent);
             }
           }
+
+          // 2. Fetch Adaptaciones
+          const resAdapts = await fetch("/api/adaptations");
+          if (resAdapts.ok) {
+            const dataAdapts = await resAdapts.json();
+            setUserAdaptations(dataAdapts.adaptations || []);
+          }
+
         } catch (err) {
-          console.error("Error al sincronizar CVs con backend:", err);
+          console.error("Error sincronizando con backend:", err);
         }
       } else {
         // Modo Invitado
         if (Array.isArray(localCvs) && localCvs.length > 0) {
           setUserCvs(localCvs);
+          setCvType("base");
           setActiveCvId(localCvs[0].id);
           setYamlContent(localCvs[0].yamlContent);
           setLastSavedContent(localCvs[0].yamlContent);
-          return;
+        } else {
+          const defaultLocalCv = {
+            id: `local-cv-${crypto.randomUUID()}`,
+            title: "Nuevo CV",
+            yamlContent: DEFAULT_SPANISH_YAML,
+          };
+          setUserCvs([defaultLocalCv]);
+          setCvType("base");
+          setActiveCvId(defaultLocalCv.id);
+          setYamlContent(defaultLocalCv.yamlContent);
+          setLastSavedContent(defaultLocalCv.yamlContent);
+          localStorage.setItem("palatime_local_cvs", JSON.stringify([defaultLocalCv]));
         }
 
-        const defaultLocalCv = {
-          id: `local-cv-${crypto.randomUUID()}`,
-          title: "Nuevo CV",
-          yamlContent: DEFAULT_SPANISH_YAML,
-        };
-        setUserCvs([defaultLocalCv]);
-        setActiveCvId(defaultLocalCv.id);
-        setYamlContent(defaultLocalCv.yamlContent);
-        setLastSavedContent(defaultLocalCv.yamlContent);
-        localStorage.setItem("palatime_local_cvs", JSON.stringify([defaultLocalCv]));
+        setUserAdaptations(localAdapts);
       }
     };
 
-    initializeAndMigrateCvs();
+    initializeAndMigrateData();
   }, [isAuthenticated]);
 
   const executeWithUnsavedCheck = (action: () => void) => {
@@ -590,13 +620,25 @@ function CrearCvContent() {
 
   const loadCvIntoEditor = (cv: any) => {
     executeWithUnsavedCheck(() => {
+      setCvType("base");
       setActiveCvId(cv.id);
+      setActiveAdaptationId(null);
       setYamlContent(cv.yamlContent); 
       setLastSavedContent(cv.yamlContent);
     });
   };
 
-  // Sincronizar selectores automáticamente al cambiar de CV o actualizar contenido
+  const loadAdaptationIntoEditor = (adapt: any) => {
+    executeWithUnsavedCheck(() => {
+      setCvType("adapted");
+      setActiveAdaptationId(adapt.id);
+      setActiveCvId(null);
+      setYamlContent(adapt.yamlContent);
+      setLastSavedContent(adapt.yamlContent);
+    });
+  };
+
+  // Sincronizar selectores automáticamente al cambiar contenido
   useEffect(() => {
     if (parsedYamlObj?.design?.theme && TEMPLATES.includes(parsedYamlObj.design.theme)) {
       setSelectedTheme(parsedYamlObj.design.theme);
@@ -605,7 +647,7 @@ function CrearCvContent() {
       setCurrentLang(parsedYamlObj.locale.language);
     }
     if (parsedYamlObj?.design?.typography?.font_family && FONTS_LIST.includes(parsedYamlObj.design.typography.font_family)) {
-    setSelectedFont(parsedYamlObj.design.typography.font_family);
+      setSelectedFont(parsedYamlObj.design.typography.font_family);
     }
   }, [yamlContent]);
 
@@ -624,10 +666,7 @@ function CrearCvContent() {
         const res = await fetch("/api/cvs", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title,
-            yamlContent: finalYaml,
-          }),
+          body: JSON.stringify({ title, yamlContent: finalYaml }),
         });
 
         if (res.ok) {
@@ -638,10 +677,12 @@ function CrearCvContent() {
             setUserCvs(listData.cvs);
           }
           if (data.cv) {
+            setCvType("base");
             setActiveCvId(data.cv.id);
+            setActiveAdaptationId(null);
             setYamlContent(data.cv.yamlContent);
             setLastSavedContent(data.cv.yamlContent);
-            setSelectedTheme(modalSelectedTheme); // Sincroniza el select con el modal
+            setSelectedTheme(modalSelectedTheme);
             setSelectedFont(modalSelectedFont);
           }
           setShowCreateModal(false);
@@ -656,10 +697,12 @@ function CrearCvContent() {
         };
         const updated = [...userCvs, newLocalCv];
         setUserCvs(updated);
+        setCvType("base");
         setActiveCvId(newLocalCv.id);
+        setActiveAdaptationId(null);
         setYamlContent(newLocalCv.yamlContent);
         setLastSavedContent(newLocalCv.yamlContent);
-        setSelectedTheme(modalSelectedTheme); // Sincroniza el select con el modal
+        setSelectedTheme(modalSelectedTheme);
         setSelectedFont(modalSelectedFont);
         localStorage.setItem("palatime_local_cvs", JSON.stringify(updated));
         setShowCreateModal(false);
@@ -711,9 +754,54 @@ function CrearCvContent() {
     setTargetCv(null);
 
     if (activeCvId === id && updated.length > 0) {
-      setActiveCvId(updated[0].id);
-      setYamlContent(updated[0].yamlContent);
-      setLastSavedContent(updated[0].yamlContent);
+      loadCvIntoEditor(updated[0]);
+    }
+  };
+
+  // Funciones específicas para gestionar Adaptaciones en el Aside
+  const handleConfirmAdaptRename = async () => {
+    if (!targetAdapt || !adaptRenameInputValue.trim()) return;
+    const id = targetAdapt.id;
+
+    if (isAuthenticated && !id.startsWith("local-adapt-")) {
+      try {
+        await fetch(`/api/adaptations/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobTitle: adaptRenameInputValue }),
+        });
+      } catch (e) {}
+    }
+
+    const updated = userAdaptations.map(a => a.id === id ? { ...a, jobTitle: adaptRenameInputValue, title: adaptRenameInputValue } : a);
+    setUserAdaptations(updated);
+    if (!isAuthenticated || id.startsWith("local-adapt-")) {
+      localStorage.setItem("palatime_local_adaptations", JSON.stringify(updated));
+    }
+    setShowAdaptRenameModal(false);
+    setTargetAdapt(null);
+  };
+
+  const handleConfirmAdaptDelete = async () => {
+    if (!targetAdapt) return;
+    const id = targetAdapt.id;
+
+    if (isAuthenticated && !id.startsWith("local-adapt-")) {
+      try {
+        await fetch(`/api/adaptations/${id}`, { method: "DELETE" });
+      } catch (e) {}
+    }
+
+    const updated = userAdaptations.filter(a => a.id !== id);
+    setUserAdaptations(updated);
+    if (!isAuthenticated || id.startsWith("local-adapt-")) {
+      localStorage.setItem("palatime_local_adaptations", JSON.stringify(updated));
+    }
+    setShowAdaptDeleteModal(false);
+    setTargetAdapt(null);
+
+    if (activeAdaptationId === id && updated.length > 0) {
+      loadAdaptationIntoEditor(updated[0]);
     }
   };
 
@@ -740,9 +828,13 @@ function CrearCvContent() {
     handleFileUpload(e);
   };
 
-  const handleProtectedAdapt = () => {
+  const handleProtectedAdaptWithLimit = () => {
     if (!isAuthenticated) {
       triggerAuthAttention();
+      return;
+    }
+    if (userAdaptations.length >= 3) {
+      setShowLimitModal(true);
       return;
     }
     handleAdaptClick();
@@ -750,6 +842,7 @@ function CrearCvContent() {
 
   useEffect(() => {
     setIsMounted(true);
+    // @ts-ignore
     setIsBaseCvMissing(!hasBaseCv());
   }, []);
 
@@ -800,7 +893,7 @@ function CrearCvContent() {
       rules: [
         { token: "", foreground: "DDE3F0", background: "0F172B" },
         { token: "key", foreground: "9BB8E0" },        
-        { token: "string", foreground: "AFCBFF" },     
+        { token: "string", foreground: "AFCBFF" },    
         { token: "number", foreground: "C7D5ED" },
         { token: "keyword", foreground: "AFCBFF" },
         { token: "comment", foreground: "5C6370" },
@@ -1151,6 +1244,7 @@ function CrearCvContent() {
       router.push("/login");
       return;
     }
+    // @ts-ignore
     if (!hasBaseCv()) {
       setShowAdaptWarning(true);
     } else {
@@ -1163,7 +1257,7 @@ function CrearCvContent() {
       
       {/* 1. BARRA LATERAL IZQUIERDA */}
       <aside className={`w-72 flex flex-col border-r shrink-0 justify-between p-4 select-none ${isDarkMode ? "bg-[#0F172B] border-[#F8FAFC]/10" : "bg-white border-neutral-200"}`}>
-        <div className="space-y-6">
+        <div className="space-y-6 pr-1">
           <div className="flex items-center justify-between px-2">
             <div onClick={() => executeWithUnsavedCheck(() => router.push("/home"))} className="flex items-center gap-2.5 cursor-pointer">
               <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black text-base shadow-md">P</div>
@@ -1216,10 +1310,10 @@ function CrearCvContent() {
               </label>
             </div>
 
-            {/* Botón Adaptar protegido */}
+            {/* Botón Adaptar protegido con validación de límite de 3 */}
             <button 
               ref={adaptBtnRef}
-              onClick={handleProtectedAdapt}
+              onClick={handleProtectedAdaptWithLimit}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition shadow-sm ${showTutorial && tutorialStep === 2 ? "relative z-50 ring-4 ring-blue-500 shadow-2xl bg-[#1D293D]" : ""} ${isDarkMode ? "bg-[#1D293D] border-[#F8FAFC]/10 hover:bg-[#25364f]" : "bg-white border-neutral-300 hover:bg-neutral-50"}`}
             >
               <FileUser className="w-4 h-4 text-blue-500" />
@@ -1227,18 +1321,18 @@ function CrearCvContent() {
             </button>
           </div>
 
-          {/* Sección de CVs dinámicos en el Aside con 3 puntitos flotantes */}
-          <div className="space-y-2">
+          {/* Sección de CVs Base */}
+          <div className="py-1">
             <div className="flex items-center justify-between px-2">
               <span className="text-[11px] font-bold uppercase tracking-wider opacity-65">Mis CVs</span>
-              {!isAuthenticated && <span className=" text-[10px] text-amber-400 font-medium flex justify-start items-center"><CloudOff size={15} className=" mx-1"/>Guardado localmente</span>}
+              {!isAuthenticated && <span className="text-[10px] text-amber-400 font-medium flex items-center"><CloudOff size={13} className="mx-1"/>Local</span>}
             </div>
             
-            <div className="space-y-1 max-h-[210px] overflow-y-auto overflow-x-visible pr-1 relative">
+            <div className="space-y-1 max-h-[135px] overflow-y-auto overflow-x-visible pr-1 relative">
               {userCvs.map((cv) => (
                 <div 
                   key={cv.id} 
-                  className={`group relative px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-between cursor-pointer transition ${
+                  className={`group relative px-2 py-1 rounded-lg text-xs font-medium flex items-center justify-between cursor-pointer transition ${
                     activeCvId === cv.id 
                       ? (isDarkMode ? "bg-[#1D293D] text-white border border-blue-500/30" : "bg-blue-50 text-blue-900 border border-blue-200")
                       : (isDarkMode ? "hover:bg-neutral-800/50 text-neutral-300" : "hover:bg-neutral-100 text-neutral-700")
@@ -1251,7 +1345,6 @@ function CrearCvContent() {
                   <div className="flex items-center gap-1.5 shrink-0 relative">
                     {activeCvId === cv.id && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
                     
-                    {/* Botón de 3 puntitos */}
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1260,11 +1353,7 @@ function CrearCvContent() {
                           setMenuPosition(null);
                         } else {
                           const rect = e.currentTarget.getBoundingClientRect();
-                          // Calculamos la posición exacta a la derecha del botón
-                          setMenuPosition({
-                            top: rect.top,
-                            left: rect.right + 8, // 8px de separación a la derecha
-                          });
+                          setMenuPosition({ top: rect.top, left: rect.right + 8 });
                           setActiveMenuCvId(cv.id);
                         }
                       }}
@@ -1273,20 +1362,9 @@ function CrearCvContent() {
                       <MoreVertical className="w-3.5 h-3.5 opacity-70" />
                     </button>
 
-                    {/* Menú flotante con posición fija exacta a la derecha */}
                     {activeMenuCvId === cv.id && menuPosition && (
                       <>
-                        {/* Fondo invisible para cerrar al hacer clic afuera */}
-                        <div 
-                          className="fixed inset-0 z-40 bg-transparent" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveMenuCvId(null);
-                            setMenuPosition(null);
-                          }}
-                        />
-
-                        {/* Menú posicionado de forma fija a la derecha del botón */}
+                        <div className="fixed inset-0 z-40 bg-transparent" onClick={(e) => { e.stopPropagation(); setActiveMenuCvId(null); setMenuPosition(null); }} />
                         <div 
                           ref={menuRef} 
                           style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}
@@ -1325,10 +1403,106 @@ function CrearCvContent() {
               ))}
             </div>
           </div>
+
+          {/* SECCIÓN NUEVA: CVs Adaptados (Con límite estricto de 3 y estado vacío) */}
+          <div className="space-y-2 pt-2 border-t border-neutral-700/20">
+            <div className="flex items-center justify-between px-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider opacity-65">CVs Adaptados ({userAdaptations.length}/3)</span>
+            </div>
+
+            {userAdaptations.length === 0 ? (
+              <div className={`p-3 rounded-xl border border-dashed text-center space-y-1.5 ${isDarkMode ? "border-white/10 text-neutral-400 bg-neutral-900/30" : "border-neutral-300 text-neutral-500 bg-neutral-50"}`}>
+                <p className="text-[11px] font-medium">No tenés adaptaciones guardadas</p>
+                <button 
+                  onClick={handleProtectedAdaptWithLimit}
+                  className="text-[10px] text-blue-400 hover:underline font-semibold flex items-center justify-center gap-1 mx-auto"
+                >
+                  <Sparkles className="w-3 h-3" /> Crear adaptación IA
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-1 max-h-[100px] overflow-y-auto overflow-x-visible pr-1 relative">
+                {userAdaptations.map((adapt) => (
+                  <div 
+                    key={adapt.id} 
+                    className={`group relative px-2 py-1 rounded-lg text-xs font-medium flex items-center justify-between cursor-pointer transition ${
+                      activeAdaptationId === adapt.id 
+                        ? (isDarkMode ? "bg-[#1D293D] text-white border border-blue-500/30" : "bg-blue-50 text-blue-900 border border-blue-200")
+                        : (isDarkMode ? "hover:bg-neutral-800/50 text-neutral-300" : "hover:bg-neutral-100 text-neutral-700")
+                    }`}
+                  >
+                    <div className="flex-1 truncate mr-2" onClick={() => loadAdaptationIntoEditor(adapt)}>
+                      <span className="truncate block font-semibold">
+                        {adapt.jobTitle || adapt.title || "CV Adaptado"} {adapt.company ? `- ${adapt.company}` : ""}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0 relative">
+                      {activeAdaptationId === adapt.id && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
+                      
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (activeMenuAdaptId === adapt.id) {
+                            setActiveMenuAdaptId(null);
+                            setAdaptMenuPosition(null);
+                          } else {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setAdaptMenuPosition({ top: rect.top, left: rect.right + 8 });
+                            setActiveMenuAdaptId(adapt.id);
+                          }
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition relative"
+                      >
+                        <MoreVertical className="w-3.5 h-3.5 opacity-70" />
+                      </button>
+
+                      {activeMenuAdaptId === adapt.id && adaptMenuPosition && (
+                        <>
+                          <div className="fixed inset-0 z-40 bg-transparent" onClick={(e) => { e.stopPropagation(); setActiveMenuAdaptId(null); setAdaptMenuPosition(null); }} />
+                          <div 
+                            ref={adaptMenuRef} 
+                            style={{ top: `${adaptMenuPosition.top}px`, left: `${adaptMenuPosition.left}px` }}
+                            className={`fixed w-32 px-1 rounded-xl shadow-2xl border z-50 py-1 text-xs ${isDarkMode ? "bg-[#1D293D] border-white/20 text-white" : "bg-white border-neutral-200 text-neutral-800"}`}
+                          >
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTargetAdapt(adapt);
+                                setAdaptRenameInputValue(adapt.jobTitle || adapt.title || "");
+                                setShowAdaptRenameModal(true);
+                                setActiveMenuAdaptId(null);
+                                setAdaptMenuPosition(null);
+                              }}
+                              className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-blue-500/20 rounded-md cursor-pointer"
+                            >
+                              <Edit2 className="w-3 h-3" /> Renombrar
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTargetAdapt(adapt);
+                                setShowAdaptDeleteModal(true);
+                                setActiveMenuAdaptId(null);
+                                setAdaptMenuPosition(null);
+                              }}
+                              className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-red-400 hover:bg-red-500/20 rounded-md cursor-pointer"
+                            >
+                              <Trash2 className="w-3 h-3" /> Eliminar
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="space-y-4 pt-4 border-t border-neutral-700/20">
-          <div className="space-y-1 text-xs font-medium">
+        <div className="space-y-2 border-t border-neutral-700/20">
+          <div className="py-2 -mb-2 text-xs font-medium">
             <button 
               onClick={() => { setTutorialStep(1); setShowTutorial(true); }}
               className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg opacity-80 hover:opacity-100 hover:bg-neutral-500/10 text-left"
@@ -1339,7 +1513,7 @@ function CrearCvContent() {
 
           <div 
             ref={authSectionRef}
-            className={`space-y-4 pt-4 ${!isAuthenticated ? 'border' : 'border-0' } border-neutral-700/20 transition-all duration-500 rounded-2xl p-2 ${
+            className={`pt-2 ${!isAuthenticated ? 'border' : 'border-0' } border-neutral-700/20 transition-all duration-500 rounded-2xl p-2 ${
               shouldHighlightAuth ? "ring-4 ring-blue-500 bg-blue-500/10" : ""
             }`}
           >
@@ -2404,6 +2578,90 @@ function CrearCvContent() {
               </button>
               <button 
                 onClick={handleConfirmDelete}
+                className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-600/20 transition cursor-pointer"
+              >
+                Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL RENOMBRAR ADAPTACIÓN */}
+      {showAdaptRenameModal && targetAdapt && (
+        <div onClick={() => setShowAdaptRenameModal(false)} className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div onClick={(e) => e.stopPropagation()} className={`w-full max-w-md rounded-2xl p-6 shadow-2xl border space-y-4 ${isDarkMode ? "bg-[#0F172B] border-white/20 text-white" : "bg-white border-neutral-200 text-slate-900"}`}>
+            <h3 className="text-base font-bold">Renombrar Adaptación</h3>
+            <div>
+              <label className="block text-xs font-bold mb-1 opacity-80">Nuevo Puesto / Título</label>
+              <input 
+                type="text"
+                autoFocus
+                value={adaptRenameInputValue}
+                onChange={(e) => setAdaptRenameInputValue(e.target.value)}
+                className={`w-full border rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? "bg-[#1D293D] border-white/20 text-white" : "bg-neutral-50 border-neutral-300"}`}
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button 
+                onClick={() => setShowAdaptRenameModal(false)}
+                className="px-4 py-2 rounded-xl border text-xs font-semibold hover:bg-neutral-500/10 transition"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleConfirmAdaptRename}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md transition cursor-pointer"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ELIMINAR ADAPTACIÓN */}
+      {showAdaptDeleteModal && targetAdapt && (
+        <div onClick={() => setShowAdaptDeleteModal(false)} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 transition-all">
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className={`w-full max-w-sm rounded-3xl p-6 shadow-2xl border space-y-5 transform transition-all ${
+              isDarkMode 
+                ? "bg-[#0F172B] border-white/10 text-white shadow-black/50" 
+                : "bg-white border-neutral-200 text-slate-900 shadow-xl"
+            }`}
+          >
+            {/* Icono de advertencia superior */}
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${isDarkMode ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600"}`}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className={`text-md font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>Eliminar Adaptación</h3>
+              </div>
+            </div>
+
+            {/* Mensaje descriptivo */}
+            <p className={`text-xs leading-relaxed ${isDarkMode ? "text-neutral-300" : "text-neutral-600"}`}>
+              ¿Estás seguro de que deseas eliminar la adaptación para <strong className={`font-semibold ${isDarkMode ? "text-white" : "text-slate-900"}`}>"{targetAdapt.jobTitle || targetAdapt.title}"</strong>? <br /> Perderás todo el contenido guardado en este archivo.
+            </p>
+
+            {/* Botones de acción */}
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button 
+                onClick={() => setShowAdaptDeleteModal(false)}
+                className={`px-4 py-2.5 rounded-xl border text-xs font-semibold transition ${
+                  isDarkMode 
+                    ? "border-white/10 hover:bg-white/5 text-neutral-300" 
+                    : "border-neutral-200 hover:bg-neutral-100 text-neutral-700"
+                }`}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleConfirmAdaptDelete}
                 className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-600/20 transition cursor-pointer"
               >
                 Sí, eliminar

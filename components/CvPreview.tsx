@@ -2,9 +2,11 @@
 
 import { Cv } from "@/lib/cv-schema";
 
-export default function CvPreview({ cv }: { cv: Cv }) {
-  // Aseguramos fallback a objeto seguro sin romper el renderizado
-  const safeCv = cv || {};
+export default function CvPreview({ cv }: { cv: any }) {
+  // Desenvuelve automáticamente si viene anidado en { cv: { ... } }
+  const rawCv = cv?.cv || cv || {};
+  const safeCv = rawCv.cv || rawCv;
+
   const personalInfo = safeCv.personalInfo || {
     fullName: "",
     headline: "",
@@ -60,8 +62,8 @@ export default function CvPreview({ cv }: { cv: Cv }) {
             Experiencia
           </h2>
           <div className="space-y-4">
-            {experience.map((exp) => (
-              <div key={exp.id}>
+            {experience.map((exp: any, i: number) => (
+              <div key={exp.id || i}>
                 <div className="flex justify-between items-baseline">
                   <span className="font-semibold text-neutral-800">
                     {exp.role} {exp.company && `— ${exp.company}`}
@@ -74,7 +76,7 @@ export default function CvPreview({ cv }: { cv: Cv }) {
                 </div>
                 {exp.bullets && exp.bullets.length > 0 && (
                   <ul className="list-disc list-inside text-neutral-600 text-xs mt-1 space-y-0.5">
-                    {exp.bullets.map((bullet, idx) => (
+                    {exp.bullets.map((bullet: string, idx: number) => (
                       <li key={idx}>{bullet}</li>
                     ))}
                   </ul>
@@ -91,8 +93,8 @@ export default function CvPreview({ cv }: { cv: Cv }) {
             Educación
           </h2>
           <div className="space-y-3">
-            {education.map((ed) => (
-              <div key={ed.id} className="flex justify-between items-baseline">
+            {education.map((ed: any, i: number) => (
+              <div key={ed.id || i} className="flex justify-between items-baseline">
                 <div>
                   <div className="font-semibold text-neutral-800">
                     {ed.institution}
@@ -120,8 +122,8 @@ export default function CvPreview({ cv }: { cv: Cv }) {
             Proyectos Destacados
           </h2>
           <div className="space-y-3">
-            {projects.map((proj) => (
-              <div key={proj.id}>
+            {projects.map((proj: any, i: number) => (
+              <div key={proj.id || i}>
                 <div className="flex justify-between items-baseline">
                   <span className="font-semibold text-neutral-800">
                     {proj.name}
@@ -177,8 +179,8 @@ export default function CvPreview({ cv }: { cv: Cv }) {
             Idiomas
           </h2>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
-            {languages.map((lang) => (
-              <span key={lang.id}>
+            {languages.map((lang: any, i: number) => (
+              <span key={lang.id || i}>
                 <strong className="text-neutral-700">{lang.language}:</strong>{" "}
                 {lang.level}
               </span>
